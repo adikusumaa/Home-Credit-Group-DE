@@ -29,4 +29,12 @@
     <name>hive.metastore.event.db.notification.api.auth</name>
     <value>false</value>
   </property>
+  <property>
+    <name>hive.server2.enable.doAs</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>hive.metastore.execute.setugi</name>
+    <value>false</value>
+  </property>
 </configuration>

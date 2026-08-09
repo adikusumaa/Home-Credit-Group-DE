@@ -14,15 +14,15 @@
 Membangun klaster infrastruktur data lokal secara terisolasi menggunakan Docker Compose.
 
 ### 2.2. Task Checklist
-- [ ] Membuat direktori proyek dan inisialisasi Git repository lokal.
+- [x] Membuat direktori proyek dan inisialisasi Git repository lokal.
 - [ ] Menyusun `docker-compose.yml` untuk komponen berikut:
-  - [ ] Hadoop Cluster (NameNode, DataNode).
-  - [ ] Apache Hive (Hive Metastore, HiveServer2, PostgreSQL backend untuk Metastore).
-  - [ ] Apache Spark (Spark Master, Spark Worker).
+  - [x] Hadoop Cluster (NameNode, DataNode).
+  - [x] Apache Hive (Hive Metastore, HiveServer2, PostgreSQL backend untuk Metastore).
+  - [x] Apache Spark (Spark Master, Spark Worker).
   - [ ] Apache Airflow (Webserver, Scheduler, Worker, PostgreSQL backend).
   - [ ] OpenSearch (Single-node cluster untuk sentralisasi log).
-  - [ ] Jaringan internal Docker (bridge network) agar semua layanan saling terhubung.
-- [ ] Konfigurasi volume Docker untuk persistensi data HDFS dan database relasional.
+  - [x] Jaringan internal Docker (bridge network) agar semua layanan saling terhubung.
+- [x] Konfigurasi volume Docker untuk persistensi data HDFS dan database relasional.
 - [ ] Mengeksekusi instruksi `docker-compose up -d`.
 
 ### 2.3. Rekonsiliasi & Testing (Fase 1)

@@ -6,6 +6,9 @@ volumes:
   hadoop_namenode:
   hadoop_datanode:
   postgres_data:
+  postgres_airflow_data:
+  redis_data:
+  opensearch_data:
 
 services:
   namenode:
@@ -17,6 +20,9 @@ services:
       - hadoop_namenode:/hadoop/dfs/name
     environment:
       - CLUSTER_NAME=test
+      - CORE_CONF_hadoop_proxyuser_root_hosts=*
+      - CORE_CONF_hadoop_proxyuser_root_groups=*
+      - DFS_CONF_dfs_permissions_enabled=false
     ports:
       - 9870:9870
 
@@ -78,7 +84,7 @@ services:
     ports:
       - 9083:9083
     volumes:
-      - ./config/hive-site.xml:/opt/hive/conf/hive-site.xml   # <-- TAMBAHKAN INI
+      - ./config/hive-site.xml:/opt/hive/conf/hive-site.xml
     environment:
       - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
       - DFS_NAMENODE_RPC_ADDRESS=namenode:8020
@@ -87,6 +93,7 @@ services:
       - HIVE_METASTORE_DB_URL=jdbc:postgresql://postgres_metastore:5432/metastore
       - HIVE_METASTORE_DB_USER=hive
       - HIVE_METASTORE_DB_PASSWORD=hive
+      - HADOOP_USER_NAME=root
     entrypoint: /bin/bash
     command: -c "/opt/hive/bin/hive --service metastore"
     depends_on:
@@ -104,14 +111,15 @@ services:
       - 10000:10000
       - 10002:10002
     volumes:
-      - ./config/hive-site.xml:/opt/hive/conf/hive-site.xml   
+      - ./config/hive-site.xml:/opt/hive/conf/hive-site.xml
     environment:
       - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
       - DFS_NAMENODE_RPC_ADDRESS=namenode:8020
       - HIVE_METASTORE_URIS=thrift://hive-metastore:9083
       - HIVE_WAREHOUSE_DIR=hdfs://namenode:8020/user/hive/warehouse
+      - HADOOP_USER_NAME=root
     entrypoint: /bin/bash
-    command: -c "/opt/hive/bin/hiveserver2"
+    command: -c "/opt/hive/bin/hiveserver2 -hiveconf hive.server2.enable.doAs=false"
     depends_on:
       postgres_metastore:
         condition: service_started
@@ -119,3 +127,133 @@ services:
         condition: service_healthy
       hive-metastore:
         condition: service_started
+
+  postgres_airflow:
+    image: postgres:13
+    container_name: postgres_airflow
+    networks:
+      - mage_network
+    volumes:
+      - postgres_airflow_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=airflow
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+    ports:
+      - 5433:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  redis:
+    image: redis:7
+    container_name: redis
+    networks:
+      - mage_network
+    volumes:
+      - redis_data:/data
+    ports:
+      - 6379:6379
+
+  airflow-init:
+    image: apache/airflow:2.9.0-python3.11
+    container_name: airflow-init
+    networks:
+      - mage_network
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres_airflow/airflow
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      _AIRFLOW_WWW_USER_USERNAME: airflow
+      _AIRFLOW_WWW_USER_PASSWORD: airflow
+    depends_on:
+      postgres_airflow:
+        condition: service_healthy
+    command: >
+      bash -c "airflow db migrate && airflow users create -r Admin -u airflow -p airflow -e admin@example.com -f admin -l user && exit 0"
+
+  airflow-webserver:
+    image: apache/airflow:2.9.0-python3.11
+    container_name: airflow-webserver
+    networks:
+      - mage_network
+    volumes:
+      - ./dags:/opt/airflow/dags
+    ports:
+      - 8081:8080
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres_airflow/airflow
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      _AIRFLOW_WWW_USER_USERNAME: airflow
+      _AIRFLOW_WWW_USER_PASSWORD: airflow
+    depends_on:
+      postgres_airflow:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: webserver
+
+  airflow-scheduler:
+    image: apache/airflow:2.9.0-python3.11
+    container_name: airflow-scheduler
+    networks:
+      - mage_network
+    volumes:
+      - ./dags:/opt/airflow/dags
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres_airflow/airflow
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      _AIRFLOW_WWW_USER_USERNAME: airflow
+      _AIRFLOW_WWW_USER_PASSWORD: airflow
+    depends_on:
+      postgres_airflow:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: scheduler
+
+  airflow-worker:
+    image: apache/airflow:2.9.0-python3.11
+    container_name: airflow-worker
+    networks:
+      - mage_network
+    volumes:
+      - ./dags:/opt/airflow/dags
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres_airflow/airflow
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      _AIRFLOW_WWW_USER_USERNAME: airflow
+      _AIRFLOW_WWW_USER_PASSWORD: airflow
+    depends_on:
+      postgres_airflow:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: celery worker
+
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: opensearch
+    networks:
+      - mage_network
+    ports:
+      - 9200:9200
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
