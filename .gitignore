@@ -1,0 +1,19 @@
+﻿
+Data/
+*.csv
+*.png
+
+*.vsix
+
+# Environments & Python cache (Standar project data)
+.env
+.venv
+env/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS generated files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,121 @@
+networks:
+  mage_network:
+    driver: bridge
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode:
+  postgres_data:
+
+services:
+  namenode:
+    image: bde2020/hadoop-namenode:latest
+    container_name: namenode
+    networks:
+      - mage_network
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=test
+    ports:
+      - 9870:9870
+
+  datanode:
+    image: bde2020/hadoop-datanode:latest
+    container_name: datanode
+    networks:
+      - mage_network
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    environment:
+      - SERVICE_PRECONDITION=namenode:8020
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+      - DFS_NAMENODE_RPC_ADDRESS=namenode:8020
+    depends_on:
+      - namenode
+
+  spark-master:
+    image: apache/spark:3.5.1-python3
+    container_name: spark-master
+    networks:
+      - mage_network
+    ports:
+      - 8080:8080
+      - 7077:7077
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+
+  spark-worker:
+    image: apache/spark:3.5.1-python3
+    container_name: spark-worker
+    networks:
+      - mage_network
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+
+  postgres_metastore:
+    image: postgres:13
+    container_name: postgres_metastore
+    networks:
+      - mage_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=metastore
+      - POSTGRES_USER=hive
+      - POSTGRES_PASSWORD=hive
+    ports:
+      - 5432:5432
+
+  hive-metastore:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-metastore
+    networks:
+      - mage_network
+    ports:
+      - 9083:9083
+    volumes:
+      - ./config/hive-site.xml:/opt/hive/conf/hive-site.xml   # <-- TAMBAHKAN INI
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+      - DFS_NAMENODE_RPC_ADDRESS=namenode:8020
+      - HIVE_METASTORE_WAREHOUSE_DIR=hdfs://namenode:8020/user/hive/warehouse
+      - HIVE_METASTORE_DB_DRIVER=postgres
+      - HIVE_METASTORE_DB_URL=jdbc:postgresql://postgres_metastore:5432/metastore
+      - HIVE_METASTORE_DB_USER=hive
+      - HIVE_METASTORE_DB_PASSWORD=hive
+    entrypoint: /bin/bash
+    command: -c "/opt/hive/bin/hive --service metastore"
+    depends_on:
+      postgres_metastore:
+        condition: service_started
+      namenode:
+        condition: service_healthy
+
+  hive-server:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-server
+    networks:
+      - mage_network
+    ports:
+      - 10000:10000
+      - 10002:10002
+    volumes:
+      - ./config/hive-site.xml:/opt/hive/conf/hive-site.xml   
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+      - DFS_NAMENODE_RPC_ADDRESS=namenode:8020
+      - HIVE_METASTORE_URIS=thrift://hive-metastore:9083
+      - HIVE_WAREHOUSE_DIR=hdfs://namenode:8020/user/hive/warehouse
+    entrypoint: /bin/bash
+    command: -c "/opt/hive/bin/hiveserver2"
+    depends_on:
+      postgres_metastore:
+        condition: service_started
+      namenode:
+        condition: service_healthy
+      hive-metastore:
+        condition: service_started
