@@ -34,9 +34,9 @@ Membangun klaster infrastruktur data lokal secara terisolasi menggunakan Docker 
   - HDFS Web UI dapat diakses.
   - HiveServer2 menerima koneksi via Beeline/JDBC.
 - **Kriteria Validasi:**
-  - [ ] Akses Airflow UI sukses.
-  - [ ] Cek status HDFS NameNode aktif dan memiliki kapasitas storage.
-  - [ ] Tes koneksi JDBC ke HiveServer2 berhasil.
+  - [PASS] Akses Airflow UI sukses.
+  - [PASS] Cek status HDFS NameNode aktif dan memiliki kapasitas storage.
+  - [PASS] Tes koneksi JDBC ke HiveServer2 berhasil.
 - **Status Eksekusi:** [ ] PASS / [ ] FAIL
 
 ---
