@@ -10,8 +10,6 @@ default_args = {
     'retries': 1,
 }
 
-# HAPUS inisialisasi client di sini! Pindahkan ke dalam fungsi.
-
 def create_hdfs_directory(**context):
     client = InsecureClient('http://namenode:9870', user='root')
     path = '/data/bronze/home_credit/raw/'
@@ -76,7 +74,7 @@ dag = DAG(
     'dag_bronze_ingestion',
     default_args=default_args,
     description='Upload CSV to HDFS Bronze via hdfs library',
-    schedule_interval=None,
+    schedule='@daily',
     catchup=False,
 )
 

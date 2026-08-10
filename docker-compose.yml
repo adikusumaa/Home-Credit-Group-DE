@@ -49,6 +49,9 @@ services:
     ports:
       - 8080:8080
       - 7077:7077
+      - 8888:8888
+    volumes:
+      - ./jobs:/opt/jobs
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
 
   spark-worker:
@@ -241,6 +244,7 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./data:/opt/airflow/data
+      - ./jobs:/opt/jobs
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0

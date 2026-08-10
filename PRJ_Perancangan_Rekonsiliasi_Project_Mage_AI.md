@@ -65,32 +65,77 @@ Menelan (ingest) data statis (10 CSV Home Credit) dari sumber lokal ke Hadoop Di
 
 ---
 
-## 4. Fase 3: Layer Silver (Data Cleansing & Quality Assurance)
+## 4. Fase 3: Layer Silver (Data Cleansing, Feature Engineering, Integration & Quality Assurance)
 
 ### 4.1. Spesifikasi Fitur
-Membaca data dari Layer Bronze, melakukan transformasi (pembersihan data, standardisasi), memvalidasi integritas data dengan Great Expectations, dan menyimpannya dalam format Parquet di HDFS.
+Membaca data mentah dari Layer Bronze (10 file CSV Home Credit), melakukan pembersihan data, standarisasi tipe data, **membuat fitur agregat dari tabel pendukung (bureau, previous_application, dll.) yang relevan untuk analisis risiko kredit**, menggabungkan semua fitur tersebut ke dalam satu tabel terintegrasi per aplikasi (`SK_ID_CURR`), memvalidasi integritas dan kualitas data dengan Great Expectations, dan menyimpan hasil akhir dalam format Parquet di HDFS.  
+Tabel terintegrasi ini akan menjadi dasar bagi **Dashboard Portfolio Risk Monitoring** (Fase 4 Gold) dan **pemodelan machine learning**.
 
 ### 4.2. Task Checklist
-- [ ] Menulis skrip PySpark `job_silver_transformation.py`.
-  - [ ] Logika pembacaan CSV dari `/data/bronze/...`.
-  - [ ] Logika transformasi: Konversi integer negatif pada `DAYS_BIRTH`, `DAYS_EMPLOYED` menjadi date format.
-  - [ ] Logika transformasi: Penanganan nilai Null dan de-duplikasi baris.
-- [ ] Mengonfigurasi suite Great Expectations (GE) di dalam PySpark.
-  - [ ] Mendefinisikan aturan: `SK_ID_CURR` not null, unique.
-  - [ ] Mendefinisikan aturan: Kolom target pada rentang 0 atau 1.
-- [ ] Menulis logika PySpark untuk menyimpan data yang lolos validasi ke `/data/silver/home_credit/cleaned/` dengan format Parquet.
-- [ ] Membuat `dag_silver_processing.py` di Airflow (dependen pada DAG Bronze) untuk mengeksekusi PySpark job.
+- [ ] **A. Persiapan & Analisis Data**  
+  - [ ] Memahami kamus data (`HomeCredit_columns_description.csv`) dan menentukan kolom penting.  
+  - [ ] Menentukan daftar fitur agregat yang akan dibuat dari setiap tabel pendukung (contoh: jumlah kredit aktif, rata‑rata tunggakan, utilisasi kartu kredit, dll.) sesuai kebutuhan dashboard dan prediksi.  
+  - [ ] Menentukan primary key setiap tabel (`SK_ID_CURR`, `SK_ID_BUREAU`, `SK_ID_PREV`) untuk proses join.
+
+- [ ] **B. Menulis skrip PySpark `silver_cleaning.py` (Pembersihan & Standarisasi)**  
+  - [ ] Logika pembacaan CSV dari `/data/bronze/home_credit/raw/`.  
+  - [ ] Konversi kolom hari negatif: `DAYS_BIRTH` → `AGE_YEARS`, `DAYS_EMPLOYED` → `YEARS_EMPLOYED` (tangani nilai khusus 365243 sebagai *unemployed*).  
+  - [ ] Penanganan nilai *missing*: imputasi median untuk numerik, mode/“Unknown” untuk kategorikal, atau drop kolom dengan missing > threshold.  
+  - [ ] Deduplikasi berdasarkan primary key masing‑masing tabel.  
+  - [ ] Pembersihan serupa untuk tabel pendukung (`bureau`, `previous_application`, dll.).
+
+- [ ] **C. Menulis skrip PySpark `silver_feature_engineering.py` (Agregasi & Fitur Baru)**  
+  - [ ] Untuk setiap tabel pendukung (`bureau`, `bureau_balance`, `previous_application`, `POS_CASH_balance`, `installments_payments`, `credit_card_balance`):  
+     - [ ] Menghitung fitur agregat pada level `SK_ID_CURR` (contoh: `BUREAU_ACTIVE_CNT`, `PREV_APPROVED_CNT`, `INSTAL_AVG_PAYMENT_RATIO`, `CC_AVG_UTILIZATION`, dll.).  
+     - [ ] Menyimpan DataFrame agregat sementara.  
+  - [ ] Membuat fitur tambahan dari tabel utama (`application_train`/`test`) jika diperlukan (misal: `INCOME_CREDIT_RATIO`, `ANNUITY_INCOME_RATIO`, `AGE_GROUP`, dll.).
+
+- [ ] **D. Menulis skrip PySpark `silver_integration.py` (Integrasi)**  
+  - [ ] Membaca tabel utama yang sudah bersih (`application_train_clean`, `application_test_clean`).  
+  - [ ] Melakukan **left join** dengan seluruh DataFrame agregat menggunakan kunci `SK_ID_CURR`.  
+  - [ ] Menghasilkan dua tabel terintegrasi: `train_integrated` (dengan label `TARGET`) dan `test_integrated` (tanpa label).  
+  - [ ] Validasi jumlah baris setelah join (tidak boleh bertambah/berkurang).
+
+- [ ] **E. Konfigurasi Great Expectations (GE)**  
+  - [ ] Membuat Expectation Suite untuk tabel terintegrasi, minimal:  
+     - [ ] `expect_column_values_to_not_be_null("SK_ID_CURR")`  
+     - [ ] `expect_column_values_to_be_unique("SK_ID_CURR")`  
+     - [ ] Untuk `train_integrated`: `expect_column_values_to_be_in_set("TARGET", [0,1])`  
+     - [ ] `expect_column_values_to_be_between` untuk kolom numerik penting (misal `AGE_YEARS` antara 18–100).  
+  - [ ] Menjalankan validasi GE dan menghasilkan Data Docs (HTML laporan).
+
+- [ ] **F. Menyimpan Data Lolos Validasi**  
+  - [ ] Menulis `train_integrated` dan `test_integrated` ke HDFS path `/data/silver/home_credit/integrated/` dalam format Parquet.  
+  - [ ] Menyimpan laporan GE sebagai artefak.
+
+- [ ] **G. Membuat DAG Airflow `dag_silver_processing.py`**  
+  - [ ] Dependensi: menunggu DAG Bronze sukses.  
+  - [ ] Task paralel: cleaning per tabel, lalu agregasi per tabel pendukung.  
+  - [ ] Task integrasi dan validasi GE setelah semua agregasi selesai.  
+  - [ ] Menggunakan `SparkSubmitOperator` atau `BashOperator` dengan `spark-submit`.  
 
 ### 4.3. Rekonsiliasi & Testing (Fase 3)
-- **Input:** Raw CSV di Layer Bronze. Trigger DAG `dag_silver_processing`.
-- **Expected Output:** Log PySpark menunjukkan transformasi selesai. Validasi GE mengembalikan status `Success`. File berekstensi `.parquet` terbentuk di direktori Silver HDFS.
-- **Kriteria Validasi:**
-  - [ ] Laporan Great Expectations Data Docs terbentuk dan 100% Passed.
-  - [ ] Perintah `hdfs dfs -ls /data/silver/home_credit/cleaned/` menampilkan file Parquet.
-  - [ ] Pembacaan sampel `.parquet` menggunakan PySpark shell menunjukkan tipe data tanggal telah berubah dan data duplikat hilang.
-- **Status Eksekusi:** [ ] PASS / [ ] FAIL
+- **Input:**  
+  - 10 file CSV mentah di Layer Bronze.  
+  - Trigger DAG `dag_silver_processing` (atau eksekusi bertahap manual).
 
----
+- **Expected Output:**  
+  - Log PySpark menunjukkan seluruh tahap (cleaning, agregasi, integrasi) selesai tanpa error.  
+  - Validasi GE mengembalikan status **Success** untuk semua expectation yang ditentukan.  
+  - File `train_integrated.parquet` dan `test_integrated.parquet` terbentuk di `/data/silver/home_credit/integrated/`.  
+  - Jumlah baris `train_integrated` sama dengan `application_train.csv` awal (setelah dedup).  
+  - Laporan GE Data Docs tersimpan dan dapat diakses.
+
+- **Kriteria Validasi:**
+  - [ ] Semua tabel berhasil dibersihkan dan tidak ada duplikat pada primary key.  
+  - [ ] Kolom hasil konversi hari (misal `AGE_YEARS`, `YEARS_EMPLOYED`) bertipe numerik positif.  
+  - [ ] Jumlah fitur agregat sesuai dengan daftar yang direncanakan (minimal 5 fitur per tabel pendukung).  
+  - [ ] Tabel terintegrasi dapat dibaca oleh PySpark dan menampilkan skema yang benar (termasuk kolom agregat).  
+  - [ ] Query sederhana di PySpark shell menunjukkan bahwa `SK_ID_CURR` unik dan `TARGET` hanya bernilai 0/1.  
+  - [ ] Laporan Great Expectations Data Docs menunjukkan **100% Passed** untuk semua expectation.  
+  - [ ] Perintah `hdfs dfs -ls /data/silver/home_credit/integrated/` menampilkan file Parquet.
+
+- **Status Eksekusi:** [ ] PASS / [ ] FAIL
 
 ## 5. Fase 4: Layer Gold (Aggregation & Data Warehouse Hive)
 
