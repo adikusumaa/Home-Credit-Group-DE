@@ -47,20 +47,20 @@ Membangun klaster infrastruktur data lokal secara terisolasi menggunakan Docker 
 Menelan (ingest) data statis (10 CSV Home Credit) dari sumber lokal ke Hadoop Distributed File System (HDFS) menggunakan Apache Airflow tanpa mengubah struktur data.
 
 ### 3.2. Task Checklist
-- [ ] Membuat direktori HDFS `/data/bronze/home_credit/raw/`.
-- [ ] Membuat struktur folder DAGs pada direktori Airflow.
-- [ ] Menulis file `dag_bronze_ingestion.py`.
-  - [ ] Mendefinisikan task ekstraksi 10 file CSV.
-  - [ ] Mendefinisikan task pemindahan file ke HDFS menggunakan hook/operator WebHDFS atau bash command.
-- [ ] Melakukan deploy DAG ke Airflow dan memicu eksekusi manual (trigger DAG).
+- [x] Membuat direktori HDFS `/data/bronze/home_credit/raw/`.
+- [x] Membuat struktur folder DAGs pada direktori Airflow.
+- [x] Menulis file `dag_bronze_ingestion.py`.
+  - [x] Mendefinisikan task ekstraksi 10 file CSV.
+  - [x] Mendefinisikan task pemindahan file ke HDFS menggunakan hook/operator WebHDFS atau bash command.
+- [x] Melakukan deploy DAG ke Airflow dan memicu eksekusi manual (trigger DAG).
 
 ### 3.3. Rekonsiliasi & Testing (Fase 2)
 - **Input:** 10 file CSV pada sistem lokal. Eksekusi DAG `dag_bronze_ingestion`.
 - **Expected Output:** DAG berstatus `Success`. 10 file CSV berada persis di path HDFS `/data/bronze/home_credit/raw/` dengan ukuran file (byte) yang identik dengan sumber.
 - **Kriteria Validasi:**
-  - [ ] Status Airflow DAG: Success.
-  - [ ] Eksekusi perintah `hdfs dfs -ls /data/bronze/home_credit/raw/` menampilkan 10 file.
-  - [ ] Pengecekan ukuran file sumber vs ukuran file di HDFS (Checksum matching).
+  - [x] Status Airflow DAG: Success.
+  - [x] Eksekusi perintah `hdfs dfs -ls /data/bronze/home_credit/raw/` menampilkan 10 file.
+  - [x] Pengecekan ukuran file sumber vs ukuran file di HDFS (Checksum matching).
 - **Status Eksekusi:** [ ] PASS / [ ] FAIL
 
 ---
