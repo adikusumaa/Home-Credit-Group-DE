@@ -163,8 +163,9 @@ services:
       - 6379:6379
 
   airflow-init:
-    image: apache/airflow:2.9.0-python3.11
+    image: airflow-custom:2.9.0
     container_name: airflow-init
+    user: root
     networks:
       - mage_network
     environment:
@@ -174,6 +175,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: "123admin"
     depends_on:
       postgres_airflow:
         condition: service_healthy
@@ -181,12 +183,14 @@ services:
       bash -c "airflow db migrate && airflow users create -r Admin -u airflow -p airflow -e admin@example.com -f admin -l user && exit 0"
 
   airflow-webserver:
-    image: apache/airflow:2.9.0-python3.11
+    image: airflow-custom:2.9.0
     container_name: airflow-webserver
+    user: root
     networks:
       - mage_network
     volumes:
       - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
     ports:
       - 8081:8080
     environment:
@@ -196,6 +200,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: "123admin"
     depends_on:
       postgres_airflow:
         condition: service_healthy
@@ -204,12 +209,14 @@ services:
     command: webserver
 
   airflow-scheduler:
-    image: apache/airflow:2.9.0-python3.11
+    image: airflow-custom:2.9.0
     container_name: airflow-scheduler
+    user: root
     networks:
       - mage_network
     volumes:
       - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
@@ -217,6 +224,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: "123admin"
     depends_on:
       postgres_airflow:
         condition: service_healthy
@@ -225,12 +233,14 @@ services:
     command: scheduler
 
   airflow-worker:
-    image: apache/airflow:2.9.0-python3.11
+    image: airflow-custom:2.9.0
     container_name: airflow-worker
+    user: root
     networks:
       - mage_network
     volumes:
       - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
@@ -238,6 +248,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: "123admin"
     depends_on:
       postgres_airflow:
         condition: service_healthy

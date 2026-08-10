@@ -1,0 +1,91 @@
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime
+import os
+from hdfs import InsecureClient
+
+default_args = {
+    'owner': 'airflow',
+    'start_date': datetime(2026, 8, 9),
+    'retries': 1,
+}
+
+# Inisialisasi client WebHDFS
+client = InsecureClient('http://namenode:9870', user='root')
+
+def create_hdfs_directory(**context):
+    """Buat direktori di HDFS"""
+    path = '/data/bronze/home_credit/raw/'
+    if not client.status(path, strict=False):
+        client.makedirs(path)
+        print(f"✅ Direktori {path} siap")
+    else:
+        print(f"ℹ️ Direktori {path} sudah ada")
+
+def upload_to_hdfs(file_name, **context):
+    """Upload file ke HDFS menggunakan library hdfs"""
+    local_path = f"/opt/airflow/data/{file_name}"
+    hdfs_path = f"/data/bronze/home_credit/raw/{file_name}"
+    
+    if not os.path.exists(local_path):
+        raise FileNotFoundError(f"❌ File not found: {local_path}")
+
+    # Upload dengan overwrite=True
+    client.upload(hdfs_path, local_path, overwrite=True, n_threads=1)
+    print(f"✅ Uploaded: {file_name}")
+
+def verify_hdfs_files(**context):
+    """Verifikasi file di HDFS"""
+    path = '/data/bronze/home_credit/raw/'
+    files = client.list(path, status=True)
+    print(f"📁 Total file di HDFS: {len(files)}")
+    for f in files:
+        print(f"📄 {f['name']} - {f['size']} bytes")
+    if len(files) < 10:
+        raise Exception(f"Hanya ditemukan {len(files)} file, seharusnya 10!")
+
+# Daftar file CSV (upload semuanya)
+CSV_FILES = [
+    'application_train.csv',
+    'application_test.csv',
+    'bureau.csv',
+    'bureau_balance.csv',
+    'credit_card_balance.csv',
+    'installments_payments.csv',
+    'POS_CASH_balance.csv',
+    'previous_application.csv',
+    'sample_submission.csv',
+    'HomeCredit_columns_description.csv'
+]
+
+dag = DAG(
+    'dag_bronze_ingestion',
+    default_args=default_args,
+    description='Upload CSV to HDFS Bronze via hdfs library',
+    schedule_interval=None,
+    catchup=False,
+)
+
+create_dir_task = PythonOperator(
+    task_id='create_hdfs_directory',
+    python_callable=create_hdfs_directory,
+    dag=dag,
+)
+
+upload_tasks = []
+for f in CSV_FILES:
+    task = PythonOperator(
+        task_id=f'upload_{f.replace(".", "_")}',
+        python_callable=upload_to_hdfs,
+        op_kwargs={'file_name': f},
+        dag=dag,
+    )
+    upload_tasks.append(task)
+
+verify_task = PythonOperator(
+    task_id='verify_hdfs_files',
+    python_callable=verify_hdfs_files,
+    dag=dag,
+)
+
+create_dir_task >> upload_tasks >> verify_task
