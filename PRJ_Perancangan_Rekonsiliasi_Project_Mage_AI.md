@@ -72,47 +72,47 @@ Membaca data mentah dari Layer Bronze (10 file CSV Home Credit), melakukan pembe
 Tabel terintegrasi ini akan menjadi dasar bagi **Dashboard Portfolio Risk Monitoring** (Fase 4 Gold) dan **pemodelan machine learning**.
 
 ### 4.2. Task Checklist
-- [ ] **A. Persiapan & Analisis Data**  
-  - [ ] Memahami kamus data (`HomeCredit_columns_description.csv`) dan menentukan kolom penting.  
-  - [ ] Menentukan daftar fitur agregat yang akan dibuat dari setiap tabel pendukung (contoh: jumlah kredit aktif, rata‑rata tunggakan, utilisasi kartu kredit, dll.) sesuai kebutuhan dashboard dan prediksi.  
-  - [ ] Menentukan primary key setiap tabel (`SK_ID_CURR`, `SK_ID_BUREAU`, `SK_ID_PREV`) untuk proses join.
+- [x] **A. Persiapan & Analisis Data**  
+  - [x] Memahami kamus data (`HomeCredit_columns_description.csv`) dan menentukan kolom penting.  
+  - [x] Menentukan daftar fitur agregat yang akan dibuat dari setiap tabel pendukung (contoh: jumlah kredit aktif, rata‑rata tunggakan, utilisasi kartu kredit, dll.) sesuai kebutuhan dashboard dan prediksi.  
+  - [x] Menentukan primary key setiap tabel (`SK_ID_CURR`, `SK_ID_BUREAU`, `SK_ID_PREV`) untuk proses join.
 
-- [ ] **B. Menulis skrip PySpark `silver_cleaning.py` (Pembersihan & Standarisasi)**  
-  - [ ] Logika pembacaan CSV dari `/data/bronze/home_credit/raw/`.  
-  - [ ] Konversi kolom hari negatif: `DAYS_BIRTH` → `AGE_YEARS`, `DAYS_EMPLOYED` → `YEARS_EMPLOYED` (tangani nilai khusus 365243 sebagai *unemployed*).  
-  - [ ] Penanganan nilai *missing*: imputasi median untuk numerik, mode/“Unknown” untuk kategorikal, atau drop kolom dengan missing > threshold.  
-  - [ ] Deduplikasi berdasarkan primary key masing‑masing tabel.  
-  - [ ] Pembersihan serupa untuk tabel pendukung (`bureau`, `previous_application`, dll.).
+- [x] **B. Menulis skrip PySpark `silver_cleaning.py` (Pembersihan & Standarisasi)**  
+  - [x] Logika pembacaan CSV dari `/data/bronze/home_credit/raw/`.  
+  - [x] Konversi kolom hari negatif: `DAYS_BIRTH` → `AGE_YEARS`, `DAYS_EMPLOYED` → `YEARS_EMPLOYED` (tangani nilai khusus 365243 sebagai *unemployed*).  
+  - [x] Penanganan nilai *missing*: imputasi median untuk numerik, mode/“Unknown” untuk kategorikal, atau drop kolom dengan missing > threshold.  
+  - [x] Deduplikasi berdasarkan primary key masing‑masing tabel.  
+  - [x] Pembersihan serupa untuk tabel pendukung (`bureau`, `previous_application`, dll.).
 
-- [ ] **C. Menulis skrip PySpark `silver_feature_engineering.py` (Agregasi & Fitur Baru)**  
-  - [ ] Untuk setiap tabel pendukung (`bureau`, `bureau_balance`, `previous_application`, `POS_CASH_balance`, `installments_payments`, `credit_card_balance`):  
-     - [ ] Menghitung fitur agregat pada level `SK_ID_CURR` (contoh: `BUREAU_ACTIVE_CNT`, `PREV_APPROVED_CNT`, `INSTAL_AVG_PAYMENT_RATIO`, `CC_AVG_UTILIZATION`, dll.).  
-     - [ ] Menyimpan DataFrame agregat sementara.  
-  - [ ] Membuat fitur tambahan dari tabel utama (`application_train`/`test`) jika diperlukan (misal: `INCOME_CREDIT_RATIO`, `ANNUITY_INCOME_RATIO`, `AGE_GROUP`, dll.).
+- [x] **C. Menulis skrip PySpark `silver_feature_engineering.py` (Agregasi & Fitur Baru)**  
+  - [x] Untuk setiap tabel pendukung (`bureau`, `bureau_balance`, `previous_application`, `POS_CASH_balance`, `installments_payments`, `credit_card_balance`):  
+     - [x] Menghitung fitur agregat pada level `SK_ID_CURR` (contoh: `BUREAU_ACTIVE_CNT`, `PREV_APPROVED_CNT`, `INSTAL_AVG_PAYMENT_RATIO`, `CC_AVG_UTILIZATION`, dll.).  
+     - [x] Menyimpan DataFrame agregat sementara.  
+  - [x] Membuat fitur tambahan dari tabel utama (`application_train`/`test`) jika diperlukan (misal: `INCOME_CREDIT_RATIO`, `ANNUITY_INCOME_RATIO`, `AGE_GROUP`, dll.).
 
-- [ ] **D. Menulis skrip PySpark `silver_integration.py` (Integrasi)**  
-  - [ ] Membaca tabel utama yang sudah bersih (`application_train_clean`, `application_test_clean`).  
-  - [ ] Melakukan **left join** dengan seluruh DataFrame agregat menggunakan kunci `SK_ID_CURR`.  
-  - [ ] Menghasilkan dua tabel terintegrasi: `train_integrated` (dengan label `TARGET`) dan `test_integrated` (tanpa label).  
-  - [ ] Validasi jumlah baris setelah join (tidak boleh bertambah/berkurang).
+- [x] **D. Menulis skrip PySpark `silver_integration.py` (Integrasi)**  
+  - [x] Membaca tabel utama yang sudah bersih (`application_train_clean`, `application_test_clean`).  
+  - [x] Melakukan **left join** dengan seluruh DataFrame agregat menggunakan kunci `SK_ID_CURR`.  
+  - [x] Menghasilkan dua tabel terintegrasi: `train_integrated` (dengan label `TARGET`) dan `test_integrated` (tanpa label).  
+  - [x] Validasi jumlah baris setelah join (tidak boleh bertambah/berkurang).
 
-- [ ] **E. Konfigurasi Great Expectations (GE)**  
-  - [ ] Membuat Expectation Suite untuk tabel terintegrasi, minimal:  
-     - [ ] `expect_column_values_to_not_be_null("SK_ID_CURR")`  
-     - [ ] `expect_column_values_to_be_unique("SK_ID_CURR")`  
-     - [ ] Untuk `train_integrated`: `expect_column_values_to_be_in_set("TARGET", [0,1])`  
-     - [ ] `expect_column_values_to_be_between` untuk kolom numerik penting (misal `AGE_YEARS` antara 18–100).  
-  - [ ] Menjalankan validasi GE dan menghasilkan Data Docs (HTML laporan).
+- [x] **E. Konfigurasi Great Expectations (GE)**  
+  - [x] Membuat Expectation Suite untuk tabel terintegrasi, minimal:  
+     - [x] `expect_column_values_to_not_be_null("SK_ID_CURR")`  
+     - [x] `expect_column_values_to_be_unique("SK_ID_CURR")`  
+     - [x] Untuk `train_integrated`: `expect_column_values_to_be_in_set("TARGET", [0,1])`  
+     - [x] `expect_column_values_to_be_between` untuk kolom numerik penting (misal `AGE_YEARS` antara 18–100).  
+  - [x] Menjalankan validasi GE dan menghasilkan Data Docs (HTML laporan).
 
-- [ ] **F. Menyimpan Data Lolos Validasi**  
-  - [ ] Menulis `train_integrated` dan `test_integrated` ke HDFS path `/data/silver/home_credit/integrated/` dalam format Parquet.  
-  - [ ] Menyimpan laporan GE sebagai artefak.
+- [x] **F. Menyimpan Data Lolos Validasi**  
+  - [x] Menulis `train_integrated` dan `test_integrated` ke HDFS path `/data/silver/home_credit/integrated/` dalam format Parquet.  
+  - [x] Menyimpan laporan GE sebagai artefak.
 
-- [ ] **G. Membuat DAG Airflow `dag_silver_processing.py`**  
-  - [ ] Dependensi: menunggu DAG Bronze sukses.  
-  - [ ] Task paralel: cleaning per tabel, lalu agregasi per tabel pendukung.  
-  - [ ] Task integrasi dan validasi GE setelah semua agregasi selesai.  
-  - [ ] Menggunakan `SparkSubmitOperator` atau `BashOperator` dengan `spark-submit`.  
+- [x] **G. Membuat DAG Airflow `dag_silver_processing.py`**  
+  - [x] Dependensi: menunggu DAG Bronze sukses.  
+  - [x] Task paralel: cleaning per tabel, lalu agregasi per tabel pendukung.  
+  - [x] Task integrasi dan validasi GE setelah semua agregasi selesai.  
+  - [x] Menggunakan `SparkSubmitOperator` atau `BashOperator` dengan `spark-submit`.  
 
 ### 4.3. Rekonsiliasi & Testing (Fase 3)
 - **Input:**  

@@ -18,21 +18,16 @@ def main():
     ge_df.expect_column_values_to_be_in_set("TARGET", [0, 1])
     ge_df.expect_column_values_to_be_between("AGE_YEARS", min_value=18, max_value=100)
 
-    # ========== SIMPAN HASIL VALIDASI ==========
     results = ge_df.validate()   # <-- INI YANG KURANG
 
-    # Panggil DataContext dengan root direktori yang sudah ada
     context_root_dir = "/opt/jobs/pyspark/great_expectations"
     context = DataContext(context_root_dir=context_root_dir)
 
-    # Simpan suite
     suite = ge_df.get_expectation_suite()
     context.save_expectation_suite(suite, "silver_validation_suite")
 
-    # Build Data Docs (buat laporan HTML)
     context.build_data_docs()
 
-    # ========== CEK HASIL VALIDASI ==========
     if not results['success']:
         raise Exception("❌ Validasi GAGAL! Ada data yang tidak sesuai aturan.")
 
