@@ -1,0 +1,51 @@
+from airflow import DAG
+from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from datetime import datetime
+
+default_args = {
+    'owner': 'airflow',
+    'start_date': datetime(2026, 8, 10),
+    'retries': 1,
+}
+
+dag = DAG(
+    'dag_silver_processing',
+    default_args=default_args,
+    description='Silver Layer: Feature Engineering for Home Credit',
+    schedule_interval=None,
+    catchup=False,
+)
+
+task_1 = SparkSubmitOperator(
+    task_id='application_profile',
+    application='/opt/airflow/jobs/pyspark/silver/application_profile.py',
+    conn_id='spark_default',
+    verbose=True,
+    dag=dag,
+)
+
+task_2 = SparkSubmitOperator(
+    task_id='bureau_credit_history',
+    application='/opt/airflow/jobs/pyspark/silver/bureau_credit_history.py',
+    conn_id='spark_default',
+    verbose=True,
+    dag=dag,
+)
+
+task_3 = SparkSubmitOperator(
+    task_id='loan_and_payment_behavior',
+    application='/opt/airflow/jobs/pyspark/silver/loan_and_payment_behavior.py',
+    conn_id='spark_default',
+    verbose=True,
+    dag=dag,
+)
+
+task_4 = SparkSubmitOperator(
+    task_id='final_application_features',
+    application='/opt/airflow/jobs/pyspark/silver/final_application_features.py',
+    conn_id='spark_default',
+    verbose=True,
+    dag=dag,
+)
+
+task_1 >> task_2 >> task_3 >> task_4

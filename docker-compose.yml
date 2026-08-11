@@ -23,8 +23,13 @@ services:
       - CORE_CONF_hadoop_proxyuser_root_hosts=*
       - CORE_CONF_hadoop_proxyuser_root_groups=*
       - DFS_CONF_dfs_permissions_enabled=false
+      - HADOOP_HEAPSIZE=512   # <-- BATASI HEAP NAMENODE
     ports:
       - 9870:9870
+    deploy:
+      resources:
+        limits:
+          memory: 768M   # <-- MAKSIMAL 768 MB
 
   datanode:
     image: bde2020/hadoop-datanode:latest
@@ -38,8 +43,13 @@ services:
       - CLUSTER_NAME=test
       - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
       - DFS_NAMENODE_RPC_ADDRESS=namenode:8020
+      - HADOOP_HEAPSIZE=256
     depends_on:
       - namenode
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   spark-master:
     image: apache/spark:3.5.1-python3
@@ -47,12 +57,18 @@ services:
     networks:
       - mage_network
     ports:
-      - 8080:8080
+      - 18080:8080
       - 7077:7077
       - 8888:8888
     volumes:
       - ./jobs:/opt/jobs
+    environment:
+      - SPARK_DAEMON_MEMORY=512m  # <-- BATASI MEMORY MASTER
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    deploy:
+      resources:
+        limits:
+          memory: 768M
 
   spark-worker:
     image: apache/spark:3.5.1-python3
@@ -61,9 +77,15 @@ services:
       - mage_network
     environment:
       - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=1g   # <-- TURUNKAN DARI 2g JADI 1g
+      - SPARK_WORKER_CORES=1     # <-- TURUNKAN DARI 2 JADI 1 CORE
     depends_on:
       - spark-master
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    deploy:
+      resources:
+        limits:
+          memory: 1536M  # <-- MAKSIMAL 1.5 GB
 
   postgres_metastore:
     image: postgres:13
@@ -78,6 +100,10 @@ services:
       - POSTGRES_PASSWORD=hive
     ports:
       - 5432:5432
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   hive-metastore:
     image: bde2020/hive:2.3.2-postgresql-metastore
@@ -97,6 +123,7 @@ services:
       - HIVE_METASTORE_DB_USER=hive
       - HIVE_METASTORE_DB_PASSWORD=hive
       - HADOOP_USER_NAME=root
+      - HADOOP_HEAPSIZE=256   # <-- BATASI HEAP HIVE
     entrypoint: /bin/bash
     command: -c "/opt/hive/bin/hive --service metastore"
     depends_on:
@@ -104,6 +131,10 @@ services:
         condition: service_started
       namenode:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 768M
 
   hive-server:
     image: bde2020/hive:2.3.2-postgresql-metastore
@@ -121,6 +152,7 @@ services:
       - HIVE_METASTORE_URIS=thrift://hive-metastore:9083
       - HIVE_WAREHOUSE_DIR=hdfs://namenode:8020/user/hive/warehouse
       - HADOOP_USER_NAME=root
+      - HADOOP_HEAPSIZE=256
     entrypoint: /bin/bash
     command: -c "/opt/hive/bin/hiveserver2 -hiveconf hive.server2.enable.doAs=false"
     depends_on:
@@ -130,6 +162,10 @@ services:
         condition: service_healthy
       hive-metastore:
         condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 768M
 
   postgres_airflow:
     image: postgres:13
@@ -153,7 +189,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 512M   # SUDAH ADA, TETAP PERTAHANKAN
 
   redis:
     image: redis:7
@@ -164,11 +200,14 @@ services:
       - redis_data:/data
     ports:
       - 6379:6379
+    deploy:
+      resources:
+        limits:
+          memory: 256M   # <-- TAMBAHKAN BATASAN UNTUK REDIS
 
   airflow-init:
     image: airflow-custom:2.9.0
-    container_name: airflow-init
-    user: root
+    container_name: airflow-init    
     networks:
       - mage_network
     environment:
@@ -184,23 +223,29 @@ services:
         condition: service_healthy
     command: >
       bash -c "airflow db migrate && airflow users create -r Admin -u airflow -p airflow -e admin@example.com -f admin -l user && exit 0"
+    deploy:
+      resources:
+        limits:
+          memory: 512M   # <-- TAMBAHKAN BATASAN
 
   airflow-webserver:
     image: airflow-custom:2.9.0
-    container_name: airflow-webserver
-    user: root
+    container_name: airflow-webserver    
     networks:
       - mage_network
     volumes:
       - ./dags:/opt/airflow/dags
       - ./data:/opt/airflow/data
     ports:
-      - 8081:8080
+      - 18081:8080
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
       AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CORE__PARALLELISM: 1          # <-- WAJIB! HANYA 1 TASK SEJALAN
+      AIRFLOW__CORE__DAG_CONCURRENCY: 1      # <-- WAJIB!
+      AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: 1
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
       AIRFLOW__WEBSERVER__SECRET_KEY: "123admin"
@@ -210,11 +255,14 @@ services:
       redis:
         condition: service_started
     command: webserver
+    deploy:
+      resources:
+        limits:
+          memory: 512M   # <-- BATASI WEBSERVER
 
   airflow-scheduler:
     image: airflow-custom:2.9.0
-    container_name: airflow-scheduler
-    user: root
+    container_name: airflow-scheduler    
     networks:
       - mage_network
     volumes:
@@ -225,6 +273,9 @@ services:
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
       AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CORE__PARALLELISM: 1
+      AIRFLOW__CORE__DAG_CONCURRENCY: 1
+      AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: 1
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
       AIRFLOW__WEBSERVER__SECRET_KEY: "123admin"
@@ -234,22 +285,31 @@ services:
       redis:
         condition: service_started
     command: scheduler
+    deploy:
+      resources:
+        limits:
+          memory: 512M   # <-- BATASI SCHEDULER
 
   airflow-worker:
     image: airflow-custom:2.9.0
     container_name: airflow-worker
-    user: root
     networks:
       - mage_network
     volumes:
       - ./dags:/opt/airflow/dags
       - ./data:/opt/airflow/data
       - ./jobs:/opt/jobs
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
       AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CORE__PARALLELISM: 1
+      AIRFLOW__CORE__DAG_CONCURRENCY: 1
+      AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: 1
+      AIRFLOW__CELERY__WORKER_CONCURRENCY: 1           # <-- TURUNKAN KE 1
+      AIRFLOW__CELERY__WORKER_PREFETCH_MULTIPLIER: 1   # <-- PASTIKAN HANYA 1 TASK
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
       AIRFLOW__WEBSERVER__SECRET_KEY: "123admin"
@@ -259,6 +319,10 @@ services:
       redis:
         condition: service_started
     command: celery worker
+    deploy:
+      resources:
+        limits:
+          memory: 1024M   # <-- NAIKKAN JADI 1GB
 
   opensearch:
     image: opensearchproject/opensearch:2.11.0
@@ -270,5 +334,10 @@ services:
     environment:
       - discovery.type=single-node
       - DISABLE_SECURITY_PLUGIN=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m   # <-- INI PALING PENTING! BATASI JVM KE 512MB
     volumes:
       - opensearch_data:/usr/share/opensearch/data
+    deploy:
+      resources:
+        limits:
+          memory: 1024M   # <-- MAKSIMAL 1GB UNTUK OPENSEARCH
