@@ -12,6 +12,7 @@ dag = DAG(
     catchup=False,
 )
 
+# Daftar script PySpark (4 task ETL)
 scripts = [
     'application_profile.py',
     'bureau_credit_history.py',
@@ -28,4 +29,16 @@ for script in scripts:
     )
     tasks.append(task)
 
-tasks[0] >> tasks[1] >> tasks[2] >> tasks[3]
+# ============================================
+# TASK TAMBAHAN: VALIDASI GREAT EXPECTATIONS
+# ============================================
+validate_task = BashOperator(
+    task_id='validate_silver_data',
+    bash_command='docker exec spark-master /opt/spark/bin/spark-submit /opt/jobs/pyspark/generate_report.py',
+    dag=dag,
+)
+
+# ============================================
+# URUTAN EKSEKUSI (4 ETL dulu, BARU Validasi)
+# ============================================
+tasks[0] >> tasks[1] >> tasks[2] >> tasks[3] >> validate_task
