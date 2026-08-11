@@ -127,13 +127,13 @@ Tabel terintegrasi ini akan menjadi dasar bagi **Dashboard Portfolio Risk Monito
   - Laporan GE Data Docs tersimpan dan dapat diakses.
 
 - **Kriteria Validasi:**
-  - [ ] Semua tabel berhasil dibersihkan dan tidak ada duplikat pada primary key.  
-  - [ ] Kolom hasil konversi hari (misal `AGE_YEARS`, `YEARS_EMPLOYED`) bertipe numerik positif.  
-  - [ ] Jumlah fitur agregat sesuai dengan daftar yang direncanakan (minimal 5 fitur per tabel pendukung).  
-  - [ ] Tabel terintegrasi dapat dibaca oleh PySpark dan menampilkan skema yang benar (termasuk kolom agregat).  
-  - [ ] Query sederhana di PySpark shell menunjukkan bahwa `SK_ID_CURR` unik dan `TARGET` hanya bernilai 0/1.  
-  - [ ] Laporan Great Expectations Data Docs menunjukkan **100% Passed** untuk semua expectation.  
-  - [ ] Perintah `hdfs dfs -ls /data/silver/home_credit/integrated/` menampilkan file Parquet.
+  - [x] Semua tabel berhasil dibersihkan dan tidak ada duplikat pada primary key.  
+  - [x] Kolom hasil konversi hari (misal `AGE_YEARS`, `YEARS_EMPLOYED`) bertipe numerik positif.  
+  - [x] Jumlah fitur agregat sesuai dengan daftar yang direncanakan (minimal 5 fitur per tabel pendukung).  
+  - [x] Tabel terintegrasi dapat dibaca oleh PySpark dan menampilkan skema yang benar (termasuk kolom agregat).  
+  - [x] Query sederhana di PySpark shell menunjukkan bahwa `SK_ID_CURR` unik dan `TARGET` hanya bernilai 0/1.  
+  - [x] Laporan Great Expectations Data Docs menunjukkan **100% Passed** untuk semua expectation.  
+  - [x] Perintah `hdfs dfs -ls /data/silver/home_credit/integrated/` menampilkan file Parquet.
 
 - **Status Eksekusi:** [ ] PASS / [ ] FAIL
 
