@@ -52,7 +52,7 @@ services:
           memory: 512M
 
   spark-master:
-    image: apache/spark:3.5.1-python3
+    image: spark-ge:3.5.1
     container_name: spark-master
     networks:
       - mage_network
@@ -71,7 +71,7 @@ services:
           memory: 768M
 
   spark-worker:
-    image: apache/spark:3.5.1-python3
+    image: spark-ge:3.5.1
     container_name: spark-worker
     networks:
       - mage_network
@@ -236,6 +236,7 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./data:/opt/airflow/data
+      - ./ge_report:/opt/airflow/ge_report
     ports:
       - 18081:8080
     environment:
@@ -268,6 +269,7 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./data:/opt/airflow/data
+      - ./ge_report:/opt/airflow/ge_report
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
@@ -300,6 +302,7 @@ services:
       - ./data:/opt/airflow/data
       - ./jobs:/opt/jobs
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./ge_report:/opt/airflow/ge_report
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
