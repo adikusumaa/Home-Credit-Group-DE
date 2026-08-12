@@ -6,7 +6,7 @@
 
 Dataset yang digunakan adalah **Home Credit Default Risk** (10 file CSV) dengan total > 1 juta baris data. Pipeline ini dirancang dengan pendekatan **Feature-by-Feature Validation**, di mana setiap fase harus melalui proses rekonsiliasi dan testing ketat sebelum melanjutkan ke fase berikutnya.
 
-![Arsitektur Pipeline](img/Hadoop%20Data%20Lake%20Bronze.png)
+![Arsitektur Pipeline](img/Orchestration%Airflow.png)
 *Arsitektur Data Lake dengan Hadoop, Spark, Hive, dan Airflow*
 
 ---
