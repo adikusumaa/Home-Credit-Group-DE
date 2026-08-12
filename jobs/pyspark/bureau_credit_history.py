@@ -149,7 +149,6 @@ def aggregate_previous_application():
     """)
     spark.table("previous_application_features").coalesce(4).write.mode("overwrite").parquet(f"{BASE}/previous_application_features")
 
-# Eksekusi
 clean_bureau()
 clean_bureau_balance()
 clean_previous_application()

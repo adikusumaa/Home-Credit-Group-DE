@@ -12,7 +12,6 @@ dag = DAG(
     catchup=False,
 )
 
-# Script ETL (4 task)
 scripts = [
     'application_profile.py',
     'bureau_credit_history.py',
@@ -29,23 +28,16 @@ for script in scripts:
     )
     tasks.append(task)
 
-# Task Validasi GE
 validate_task = BashOperator(
     task_id='validate_silver_data',
     bash_command='docker exec spark-master /opt/spark/bin/spark-submit /opt/jobs/pyspark/generate_report.py',
     dag=dag,
 )
 
-# ============================================
-# TASK BARU: COPY LAPORAN KE HOST (OTOMATIS)
-# ============================================
 copy_report_task = BashOperator(
     task_id='copy_ge_report',
     bash_command='docker cp spark-master:/opt/jobs/pyspark/great_expectations /opt/airflow/ge_report/',
     dag=dag,
 )
 
-# ============================================
-# URUTAN EKSEKUSI
-# ============================================
 tasks[0] >> tasks[1] >> tasks[2] >> tasks[3] >> validate_task >> copy_report_task
