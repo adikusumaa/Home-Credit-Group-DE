@@ -121,7 +121,6 @@ def aggregate_payment_features():
     """)
     spark.table("credit_card_features").write.mode("overwrite").parquet(f"{BASE}/credit_card_features")
 
-# Eksekusi
 clean_pos_cash()
 clean_installments()
 clean_credit_card()

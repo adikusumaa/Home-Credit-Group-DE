@@ -40,7 +40,6 @@ def clean_application(df, is_train=True):
     df = df.dropDuplicates(["SK_ID_CURR"])
     return df
 
-# Proses Train
 df_train = spark.read.csv("hdfs://namenode:8020/data/bronze/home_credit/raw/application_train.csv", header=True, inferSchema=True)
 df_train_clean = clean_application(df_train)
 df_train_clean.coalesce(4).write.mode("overwrite").parquet("hdfs://namenode:8020/data/silver/staging/application_train_clean")

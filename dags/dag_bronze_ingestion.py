@@ -10,31 +10,34 @@ default_args = {
     'retries': 1,
 }
 
+ENV = "dev" 
+
 def create_hdfs_directory(**context):
     client = InsecureClient('http://namenode:9870', user='root')
-    path = '/data/bronze/home_credit/raw/'
+    path = f'/data/{ENV}/bronze/home_credit/raw/'
     if not client.status(path, strict=False):
         client.makedirs(path)
-        print(f"✅ Direktori {path} siap")
+        print(f"[INGESTION] Directory {path} has been created successfully.")
     else:
-        print(f"ℹ️ Direktori {path} sudah ada")
+        print(f"[INGESTION] Directory {path} already exists.")
 
 def upload_to_hdfs(file_name, **context):
     client = InsecureClient('http://namenode:9870', user='root')
     local_path = f"/opt/airflow/data/{file_name}"
-    hdfs_path = f"/data/bronze/home_credit/raw/{file_name}"
+    hdfs_path = f"/data/{ENV}/bronze/home_credit/raw/{file_name}"
     
     if not os.path.exists(local_path):
-        raise FileNotFoundError(f"❌ File not found: {local_path}")
+        raise FileNotFoundError(f"[INGESTION] File not found in local path: {local_path}")
 
     client.upload(hdfs_path, local_path, overwrite=True, n_threads=1)
-    print(f"✅ Uploaded: {file_name}")
+    print(f"[INGESTION] File {file_name} uploaded to HDFS successfully.")
 
 def verify_hdfs_files(**context):
     client = InsecureClient('http://namenode:9870', user='root')
-    path = '/data/bronze/home_credit/raw/'
+    path = f'/data/{ENV}/bronze/home_credit/raw/'
     files = client.list(path, status=True)
-    print(f"📁 Total file di HDFS: {len(files)}")
+    print(f"[INGESTION] Total files found in HDFS: {len(files)}")
+    
     for f in files:
         try:
             if isinstance(f, tuple):
@@ -51,11 +54,12 @@ def verify_hdfs_files(**context):
                 name = f.get('name', 'unknown')
                 size = f.get('length', f.get('size', 0))
         except Exception as e:
-            print(f"⚠️ Gagal parsing {f}: {e}")
+            print(f"[INGESTION] WARNING: Failed to parse file metadata {f}. Error: {e}")
             continue
-        print(f"📄 {name} - {size} bytes")
+        print(f"[INGESTION] File: {name} - Size: {size} bytes")
+        
     if len(files) != 10:
-        raise Exception(f"Jumlah file tidak sesuai! Ditemukan {len(files)}, seharusnya 10!")
+        raise Exception(f"[INGESTION] File count validation failed. Found {len(files)} files, expected 10 files.")
 
 CSV_FILES = [
     'application_train.csv',
