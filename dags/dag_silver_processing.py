@@ -2,21 +2,25 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from datetime import datetime
 
-default_args = {'owner': 'airflow', 'start_date': datetime(2026, 8, 10), 'retries': 1}
+default_args = {
+    'owner': 'airflow',
+    'start_date': datetime(2026, 8, 10),
+    'retries': 0,
+}
 
 dag = DAG(
     'dag_silver_processing',
     default_args=default_args,
-    description='Silver Layer via spark-submit (BashOperator)',
+    description='Silver Layer via spark-submit (BashOperator) - 3 scripts',
     schedule_interval='@daily',
     catchup=False,
 )
 
+# Daftar script baru
 scripts = [
-    'application_profile.py',
-    'bureau_credit_history.py',
-    'loan_and_payment_behavior.py',
-    'final_application_features.py'
+    'application_s.py',
+    'bureau_s.py',
+    'previous_s.py'
 ]
 
 tasks = []
@@ -28,16 +32,26 @@ for script in scripts:
     )
     tasks.append(task)
 
+# Tugas validasi (opsional – jika Anda masih punya generate_report.py)
 validate_task = BashOperator(
     task_id='validate_silver_data',
-    bash_command='docker exec spark-master /opt/spark/bin/spark-submit /opt/jobs/pyspark/generate_report.py',
+    bash_command=(
+        'docker exec spark-master /opt/spark/bin/spark-submit '
+        '--driver-memory 512m '
+        '--executor-memory 512m '
+        '--conf spark.driver.maxResultSize=200m '
+        '--conf spark.sql.shuffle.partitions=4 '
+        '/opt/jobs/pyspark/generate_report.py'
+    ),
     dag=dag,
 )
 
+# Tugas copy laporan GE (opsional)
 copy_report_task = BashOperator(
     task_id='copy_ge_report',
     bash_command='docker cp spark-master:/opt/jobs/pyspark/great_expectations /opt/airflow/ge_report/',
     dag=dag,
 )
 
-tasks[0] >> tasks[1] >> tasks[2] >> tasks[3] >> validate_task >> copy_report_task
+# Dependencies: application -> bureau -> previous -> validate -> copy_report
+tasks[0] >> tasks[1] >> tasks[2] >> validate_task >> copy_report_task

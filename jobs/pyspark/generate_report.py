@@ -1,38 +1,38 @@
-import great_expectations as ge
-from great_expectations.dataset import SparkDFDataset
 from pyspark.sql import SparkSession
-from great_expectations.data_context import DataContext
+from pyspark.sql.functions import col, countDistinct
+import json
 
-def main():
-    spark = SparkSession.builder \
-        .appName("GenerateGEDocs") \
-        .getOrCreate()
+spark = SparkSession.builder.appName("SilverValidation").getOrCreate()
+spark.sparkContext.setLogLevel("ERROR")
+spark.conf.set("spark.sql.shuffle.partitions", "4")   # optimasi partisi
 
-    print("📂 Membaca data train final dari HDFS...")
-    df = spark.read.parquet("hdfs://namenode:8020/data/silver/home_credit/integrated/train")
-    ge_df = SparkDFDataset(df)
+ENV = "dev"
+INTEGRATED_BASE = f"hdfs://namenode:8020/data/{ENV}/silver/home_credit/integrated"
 
-    print("🔍 Menjalankan validasi...")
-    ge_df.expect_column_values_to_not_be_null("SK_ID_CURR")
-    ge_df.expect_column_values_to_be_unique("SK_ID_CURR")
-    ge_df.expect_column_values_to_be_in_set("TARGET", [0, 1])
-    ge_df.expect_column_values_to_be_between("AGE_YEARS", min_value=18, max_value=100)
+print("📂 Membaca data train final dari HDFS...")
+df = spark.read.parquet(f"{INTEGRATED_BASE}/train")
 
-    results = ge_df.validate()   # <-- INI YANG KURANG
+# Hanya ambil kolom yang benar-benar divalidasi
+df_val = df.select("SK_ID_CURR", "TARGET", "AGE_YEARS")
 
-    context_root_dir = "/opt/jobs/pyspark/great_expectations"
-    context = DataContext(context_root_dir=context_root_dir)
+total = df_val.count()
+null_sk = df_val.filter(col("SK_ID_CURR").isNull()).count()
+distinct_sk = df_val.select(countDistinct("SK_ID_CURR")).collect()[0][0]
+invalid_target = df_val.filter(~col("TARGET").isin(0, 1)).count()
+age_out = df_val.filter((col("AGE_YEARS") < 18) | (col("AGE_YEARS") > 100)).count()
 
-    suite = ge_df.get_expectation_suite()
-    context.save_expectation_suite(suite, "silver_validation_suite")
+results = {
+    "total_rows": total,
+    "sk_id_curr_null": null_sk,
+    "sk_id_curr_unique": distinct_sk,
+    "invalid_target": invalid_target,
+    "age_out_of_range": age_out,
+    "success": null_sk == 0 and distinct_sk == total and invalid_target == 0 and age_out == 0
+}
 
-    context.build_data_docs()
+print(json.dumps(results, indent=2))
 
-    if not results['success']:
-        raise Exception("❌ Validasi GAGAL! Ada data yang tidak sesuai aturan.")
-
-    print("\n✅ LAPORAN BERHASIL DIBUAT!")
-    print(f"📁 Lokasi: {context_root_dir}/uncommitted/data_docs/local_site/index.html")
-
-if __name__ == "__main__":
-    main()
+if not results["success"]:
+    raise Exception("❌ Validasi GAGAL!")
+else:
+    print("✅ Validasi SUKSES!")
