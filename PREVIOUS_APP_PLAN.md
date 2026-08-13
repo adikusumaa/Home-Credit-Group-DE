@@ -184,13 +184,34 @@ Tabel ini mencatat **saldo bulanan** dari pinjaman POS (Point of Sales) atau pin
 **What to analyze:**  
 - Rata-rata DPD maksimum dan rata-rata DPD per nasabah, dibandingkan antara target 1 dan 0.  
 - Proporsi bulan dengan status `Active` dan `Completed` per nasabah.
+Kesimpulan Teknis – Group 1 (Status Kontrak dan Keputusan Pengajuan)
+Metrik	Insight	Rekomendasi untuk Fitur
+prevContractStatus = 'Refused'	Pengajuan ditolak adalah sinyal risiko kuat.	Wajib digunakan sebagai binary flag: has_refused_prev = 1 jika ada Refused di riwayat.
+refused_count	Semakin banyak ditolak, semakin berisiko.	Wajib digunakan sebagai numerik (refused_count).
+prevRejectReason	SCOFR dan LIMIT adalah red flag.	Gunakan sebagai kategorikal atau binary flag: is_high_risk_reason = 1 jika reason = SCOFR atau LIMIT.
+prevDaysDecision	Keputusan ≤ 30 hari memiliki risiko lebih tinggi.	Gunakan sebagai binary flag: is_recent_decision = 1 jika prevDaysDecision >= -30.
+🛠️ Feature Engineering Recommendations for Gold Layer
+Berdasarkan Group 1, fitur-fitur yang paling direkomendasikan:
 
-**Kesimpulan Teknis – Group 1:**
-_(Kosong)_
+has_refused_prev (Binary) – 1 jika ada pengajuan dengan status Refused di riwayat.
+Ini adalah fitur wajib! Menangkap esensi "pernah ditolak".
 
-**🛠️ Feature Engineering Recommendations:**
-_(Kosong)_
+refused_count (Numerik) – Jumlah total pengajuan dengan status Refused per nasabah.
+Sinyal valid: semakin banyak, semakin berisiko.
 
+is_high_risk_reason (Binary) – 1 jika alasan penolakan adalah SCOFR atau LIMIT, 0 jika lainnya.
+Menangkap alasan penolakan yang paling berbahaya.
+
+is_recent_decision (Binary) – 1 jika keputusan pengajuan terakhir terjadi dalam 30 hari terakhir (prevDaysDecision >= -30).
+Menangkap nasabah dengan kebutuhan mendesak.
+
+Fitur yang TIDAK perlu dibuat:
+
+prevContractStatus mentah sebagai one-hot (terlalu banyak kategori, beberapa seperti Canceled atau Unused mungkin tidak signifikan).
+
+avg_days_decision mentah (karena sinyalnya lebih kuat saat di-binary-kan menjadi is_recent_decision).
+
+prevRejectReason one-hot penuh (terlalu banyak kategori langka).
 ---
 
 ### Group 2: Sisa Angsuran
@@ -203,11 +224,31 @@ _(Kosong)_
 - Rata-rata `posCntInstalmentFuture` per target.  
 - Bucket sisa angsuran (misal: 0, 1-6, 7-12, >12) dan default rate-nya.
 
-**Kesimpulan Teknis – Group 2:**
-_(Kosong)_
+ Kesimpulan Teknis – Group 2 (Sisa Angsuran POS)
+Metrik	Insight	Rekomendasi untuk Fitur
+posCntInstalmentFuture	Perbedaan sangat tipis (11,3 vs 10,4).	Tidak digunakan (tidak informatif sebagai fitur utama).
+remaining_installment_bucket	Selisih default rate hanya 0,6%.	Tidak digunakan (tidak informatif).
+risk_profile = High Remaining + DPD	Red flag terkuat (12,87%).	Wajib digunakan sebagai fitur silang: is_pos_high_risk = 1 jika posCntInstalmentFuture > 12 AND posDpd > 0.
+posDpd (DPD)	DPD saja sudah menaikkan risiko ke 9,64%.	Wajib digunakan secara terpisah: has_pos_dpd = 1 jika posDpd > 0.
+🛠️ Feature Engineering Recommendations for Gold Layer
+Berdasarkan Group 2, fitur-fitur yang paling direkomendasikan dari tabel POS_CASH_balance:
 
-**🛠️ Feature Engineering Recommendations:**
-_(Kosong)_
+has_pos_dpd (Binary) – 1 jika terdapat DPD (posDpd > 0) pada pinjaman POS.
+Sinyal valid: DPD adalah indikator tunggakan yang langsung meningkatkan risiko.
+
+is_pos_high_risk (Binary) – 1 jika posCntInstalmentFuture > 12 AND posDpd > 0.
+Ini adalah fitur interaksi terkuat! Menangkap nasabah yang memiliki beban angsuran panjang sekaligus sedang menunggak.
+
+Fitur yang TIDAK perlu dibuat:
+
+posCntInstalmentFuture mentah (sangat lemah).
+
+remaining_installment_bucket (perbedaannya kecil dan tidak informatif).
+
+💡 Ringkasan Akhir untuk Anda
+Dari Group 2, kita belajar bahwa beban angsuran yang panjang tidak selalu berbahaya, tetapi kombinasi beban panjang dengan tunggakan (DPD) adalah sinyal bahaya yang sesungguhnya. DPD adalah trigger yang mengubah nasabah biasa menjadi nasabah berisiko tinggi.
+
+Fitur is_pos_high_risk dan has_pos_dpd harus masuk ke dalam tabel Gold Layer Anda.
 
 ---
 
@@ -221,12 +262,35 @@ _(Kosong)_
 - Rata-rata `posMonthsBalance` terbaru dan tertua per target.  
 - Tren status dari waktu ke waktu (misal: apakah status memburuk).
 
-**Kesimpulan Teknis – Group 3:**
-_(Kosong)_
+Kesimpulan Teknis – Group 3 (Durasi dan Riwayat Bulanan)
+Metrik	Insight	Rekomendasi untuk Fitur
+history_length	Defaulter memiliki riwayat 6 bulan lebih pendek.	Wajib digunakan sebagai numerik (pos_history_length).
+history_duration = >24 bulan	Kelompok paling stabil (7,45% default rate).	Gunakan sebagai biner: is_pos_long_history = 1 jika history_length > 24 bulan.
+avg_status_score	Tidak ada perbedaan (1,82 vs 1,82).	Tidak digunakan (tidak informatif).
+status_trend	Tren negatif identik pada kedua kelompok.	Tidak digunakan (tidak informatif).
+🛠️ Feature Engineering Recommendations for Gold Layer
+Berdasarkan Group 3, fitur-fitur yang paling direkomendasikan dari tabel POS_CASH_balance:
 
-**🛠️ Feature Engineering Recommendations:**
-_(Kosong)_
+pos_history_length (Numerik) – Durasi riwayat pinjaman POS (dalam bulan).
+Ini adalah sinyal utama: semakin panjang, semakin aman.
 
+is_pos_long_history (Binary) – 1 jika riwayat pinjaman POS > 24 bulan.
+Menangkap kelompok nasabah paling stabil.
+
+Fitur yang TIDAK perlu dibuat:
+
+avg_pos_status_score (lemah dan tidak informatif).
+
+pos_status_trend (tidak informatif).
+
+💡 Ringkasan Akhir untuk Anda
+Dari Group 3, kita belajar bahwa panjangnya riwayat pinjaman POS jauh lebih penting daripada status pinjaman saat ini:
+
+Nasabah dengan riwayat pinjaman POS yang panjang (>2 tahun) terbukti jauh lebih aman (default rate 7,45%).
+
+Nasabah dengan riwayat menengah (1-2 tahun) justru memiliki risiko paling tinggi (10,5%).
+
+Kedua fitur ini (pos_history_length dan is_pos_long_history) harus dipertimbangkan untuk masuk ke dalam tabel Gold Layer Anda.
 ---
 
 ## Tabel 3: installments_payments
@@ -256,11 +320,34 @@ Tabel ini mencatat **detail pembayaran cicilan** dari pinjaman sebelumnya. Setia
 - Persentase cicilan yang dibayar tepat waktu vs terlambat per nasabah.  
 - Rata-rata keterlambatan untuk target 1 vs 0.
 
-**Kesimpulan Teknis – Group 1:**
-_(Kosong)_
+Kesimpulan Teknis – Group 1 (Keterlambatan Pembayaran)
+Metrik	Insight	Rekomendasi untuk Fitur
+avg_late_days	Selisih sangat kecil (1 hari), tidak informatif.	Tidak digunakan (tidak informatif).
+late_ratio	Nasabah gagal bayar memiliki proporsi telat 3% lebih tinggi.	Wajib digunakan sebagai numerik (inst_late_ratio = late_count / total_installments).
+late_bucket = Keterlambatan Sedang	Bucket paling berisiko (13,9% default rate).	Gunakan sebagai fitur biner: is_inst_medium_late = 1 jika avg_late_days antara 6-15 hari.
+🛠️ Feature Engineering Recommendations for Gold Layer
+Berdasarkan Group 1, fitur-fitur yang paling direkomendasikan dari tabel installments_payments:
 
-**🛠️ Feature Engineering Recommendations:**
-_(Kosong)_
+inst_late_ratio (Numerik) – Proporsi cicilan yang dibayar terlambat (late_count / total_installments).
+Sinyal valid: semakin tinggi proporsi, semakin berisiko.
+
+is_inst_medium_late (Binary) – 1 jika rata-rata keterlambatan nasabah berada di rentang 6-15 hari.
+Ini adalah fitur interaksi yang sangat kuat, menangkap kelompok paling berisiko.
+
+Fitur yang TIDAK perlu dibuat:
+
+avg_late_days mentah (lemah dan tidak informatif).
+
+inst_on_time_ratio (redundan dengan inst_late_ratio).
+
+💡 Ringkasan Akhir untuk Anda
+Dari Group 1, kita belajar bahwa perilaku pembayaran masa lalu adalah cerminan yang kuat dari risiko masa depan, tetapi kita harus berhati-hati dalam memilih metrik yang tepat:
+
+Proporsi keterlambatan (inst_late_ratio) adalah sinyal yang valid.
+
+Keterlambatan menengah (6-15 hari) adalah zona bahaya yang paling mengkhawatirkan, karena nasabah masih berusaha tapi mulai kehilangan kendali.
+
+Kedua fitur ini (inst_late_ratio dan is_inst_medium_late) harus dipertimbangkan untuk masuk ke dalam tabel Gold Layer Anda.
 
 ---
 
@@ -275,11 +362,37 @@ _(Kosong)_
 - Rata-rata selisih pembayaran (`instPaid - instAmount`) per target.  
 - Persentase cicilan yang dibayar kurang dari seharusnya.
 
-**Kesimpulan Teknis – Group 2:**
-_(Kosong)_
+Kesimpulan Teknis – Group 2 (Jumlah dan Nilai Pembayaran)
+Metrik	Insight	Rekomendasi untuk Fitur
+avg_payment_diff	Perbedaan ekstrem (-148 vs +409).	Wajib digunakan sebagai numerik (inst_avg_payment_diff).
+payment_diff_bucket	Kurang Bayar Berat sangat berisiko (10,8%).	Gunakan sebagai kategorikal atau binary flag: is_inst_heavy_underpaid = 1 jika avg_payment_diff < -500.
+underpaid_frequency	Sering kurang bayar (>30%) sangat berisiko (12,3%).	Wajib digunakan sebagai kategorikal: inst_underpaid_freq (Tidak Pernah, Jarang, Sedang, Sering).
+🛠️ Feature Engineering Recommendations for Gold Layer
+Berdasarkan Group 2, fitur-fitur yang paling direkomendasikan dari tabel installments_payments:
 
-**🛠️ Feature Engineering Recommendations:**
-_(Kosong)_
+inst_avg_payment_diff (Numerik) – Rata-rata selisih pembayaran (instPaid - instAmount) per nasabah.
+Fitur utama! Semakin negatif, semakin berisiko.
+
+inst_underpaid_freq (Kategorikal) – Frekuensi kurang bayar dengan 4 level risiko: 'Tidak Pernah', 'Jarang', 'Sedang', 'Sering'.
+Sinyal paling kuat: Sering (>30%) → default rate 12,3%.
+
+is_inst_heavy_underpaid (Binary) – 1 jika rata-rata selisih pembayaran < -500.
+Menangkap kelompok yang paling parah kurang bayar.
+
+Fitur yang TIDAK perlu dibuat:
+
+instPaid atau instAmount mentah (sudah terwakili oleh selisih dan frekuensi).
+
+inst_on_time_ratio (sudah ada dari Group 1).
+
+💡 Ringkasan Akhir untuk Anda
+Dari Group 2, kita belajar bahwa perilaku pembayaran yang tidak disiplin (kurang bayar) adalah salah satu indikator risiko paling kuat:
+
+Rata-rata selisih pembayaran (inst_avg_payment_diff) memberikan pemisahan yang sangat jelas (-148 vs +409).
+
+Frekuensi kurang bayar (inst_underpaid_freq)—semakin sering kurang bayar, semakin tinggi risiko.
+
+Kedua fitur ini wajib masuk ke dalam tabel Gold Layer Anda.
 
 ---
 
@@ -292,11 +405,32 @@ _(Kosong)_
 **What to analyze:**  
 - Rata-rata jumlah versi per pinjaman.
 
-**Kesimpulan Teknis – Group 3:**
-_(Kosong)_
+Kesimpulan Teknis – Group 3 (Versi dan Urutan Cicilan)
+Metrik	Insight	Rekomendasi untuk Fitur
+max_version_group = Versi 0	Risiko tertinggi (11,69% default rate).	Wajib digunakan sebagai fitur biner: is_inst_version_0 = 1 jika instVersion pernah bernilai 0.
+avg_version_per_customer	Selisih sangat kecil (0,06).	Tidak digunakan (tidak informatif).
+avg_installment_count	Selisih ~1 cicilan.	Tidak digunakan (tidak informatif).
+🛠️ Feature Engineering Recommendations for Gold Layer
+Berdasarkan Group 3, fitur-fitur yang paling direkomendasikan dari tabel installments_payments:
 
-**🛠️ Feature Engineering Recommendations:**
-_(Kosong)_
+is_inst_version_0 (Binary) – 1 jika pernah ada cicilan dengan instVersion = 0.
+Ini adalah sinyal utama: Versi 0 menandakan pinjaman baru atau belum teruji.
+
+Fitur yang TIDAK perlu dibuat:
+
+avg_version_per_customer (lemah).
+
+avg_installment_count (selisih sangat kecil).
+
+💡 Ringkasan Akhir untuk Anda
+Dari Group 3, kita belajar bahwa versi cicilan yang rendah (khususnya 0) lebih berbahaya daripada versi yang lebih tinggi. Ini adalah temuan yang kontra-intuitif namun valid secara statistik dan masuk akal secara bisnis:
+
+Versi 0 adalah "kategori risiko". Pinjaman yang belum memiliki riwayat versi atau belum mengalami penyesuaian dianggap lebih berisiko.
+
+Versi 1, 2, atau 3+ justru menunjukkan bahwa pinjaman sudah "dewasa" dan risikonya lebih rendah.
+
+Fitur is_inst_version_0 harus dipertimbangkan untuk masuk ke dalam tabel Gold Layer Anda.
+
 
 ---
 
@@ -341,11 +475,38 @@ Tabel ini mencatat **saldo bulanan kartu kredit** nasabah. Mirip dengan POS_CASH
 - Rata-rata utilisasi kredit (`ccBalance / ccLimit`) per target.  
 - Bucket utilisasi (misal: <30%, 30-70%, >70%) dan default rate-nya.
 
-**Kesimpulan Teknis – Group 1:**
-_(Kosong)_
+ Kesimpulan Teknis – Group 1 (Saldo dan Limit)
+Metrik	Insight	Rekomendasi untuk Fitur
+avg_utilization	Defaulter memiliki utilisasi 47% vs 31%.	Gunakan sebagai numerik (cc_avg_utilization).
+utilization_bucket = Tinggi (>70%)	Red flag terkuat (15,57% default rate).	Wajib digunakan sebagai fitur biner: is_cc_high_utilization = 1 jika avg_utilization > 0.7.
+recent_utilization	Defaulter mencapai 67% di bulan terakhir.	Wajib digunakan sebagai numerik (cc_recent_utilization).
+🛠️ Feature Engineering Recommendations for Gold Layer
+Berdasarkan Group 1, fitur-fitur yang paling direkomendasikan dari tabel credit_card_balance:
 
-**🛠️ Feature Engineering Recommendations:**
-_(Kosong)_
+is_cc_high_utilization (Binary) – 1 jika rata-rata utilisasi kartu kredit nasabah > 70%.
+Ini adalah fitur wajib! Menangkap nasabah yang "terjepit" secara finansial.
+
+cc_recent_utilization (Numerik) – Utilisasi kartu kredit pada bulan terakhir (ccMonthsBalance = -1).
+Sinyal terkuat: semakin mendekati 1, semakin berisiko.
+
+cc_avg_utilization (Numerik) – Rata-rata utilisasi kartu kredit sepanjang riwayat.
+Sinyal yang valid, meskipun tidak sekuat recent_utilization.
+
+Fitur yang TIDAK perlu dibuat:
+
+ccBalance atau ccLimit mentah (sudah terwakili oleh rasio dan bucket utilisasi).
+
+ccContractStatus (status kartu kredit mungkin tidak sepenting utilisasi).
+
+💡 Ringkasan Akhir untuk Anda
+Dari Group 1, kita belajar bahwa kartu kredit adalah produk yang sangat menentukan risiko gagal bayar:
+
+Utilisasi kredit > 70% adalah red flag paling kuat (default rate 15,57%).
+
+Utilisasi pada bulan terakhir bahkan lebih informatif daripada rata-rata historis.
+
+Kedua fitur ini (is_cc_high_utilization dan cc_recent_utilization) wajib masuk ke dalam tabel Gold Layer Anda.
+
 
 ---
 
@@ -360,11 +521,41 @@ _(Kosong)_
 - Rata-rata total penarikan dan total pembayaran per target.  
 - Rasio pembayaran/penarikan per target.
 
-**Kesimpulan Teknis – Group 2:**
-_(Kosong)_
+Kesimpulan Teknis – Group 2 (Penarikan dan Pembayaran)
+Metrik	Insight	Rekomendasi untuk Fitur
+avg_pay_draw_ratio mentah	Anomali data (5,35 vs 0,97)	Tidak digunakan (tidak reliable).
+pay_ratio_bucket = Pembayaran Sangat Rendah	Red flag terkuat (18,89% default rate).	Wajib digunakan sebagai fitur biner: is_cc_low_pay_ratio = 1 jika pay_draw_ratio < 0.4.
+pay_ratio_bucket = Tidak Ada Penarikan	Nasabah paling aman (5,62% default rate).	Gunakan sebagai fitur biner: has_cc_activity = 0 jika ccDrawCurrent = 0 atau NULL.
+net_borrowing_bucket = Menambah Hutang Ringan	Sinyal risiko yang valid (14,16% default rate).	Gunakan sebagai fitur biner: is_cc_accruing_debt = 1 jika avg_net_borrowing positif dan tidak ekstrem.
+net_borrowing_bucket = Menambah Hutang Berat	Anomali data (default rate rendah).	Tidak digunakan (tidak reliable).
+🛠️ Feature Engineering Recommendations for Gold Layer
+Berdasarkan Group 2, fitur-fitur yang paling direkomendasikan dari tabel credit_card_balance:
 
-**🛠️ Feature Engineering Recommendations:**
-_(Kosong)_
+is_cc_low_pay_ratio (Binary) – 1 jika rasio pembayaran/penarikan nasabah < 0.4.
+Ini adalah fitur wajib! Menangkap nasabah yang membayar sangat sedikit dibandingkan penarikannya.
+
+has_cc_activity (Binary) – 1 jika nasabah memiliki aktivitas penarikan (ccDrawCurrent > 0).
+Sinyal penting: nasabah yang tidak aktif menggunakan kartu kredit justru sangat aman.
+
+is_cc_accruing_debt (Binary) – 1 jika nasabah secara konsisten menambah hutang (net borrowing positif) dengan jumlah yang wajar (tidak ekstrem).
+Menangkap nasabah yang aktif menambah beban hutang secara bertahap.
+
+Fitur yang TIDAK perlu dibuat:
+
+avg_pay_draw_ratio mentah (anomali data).
+
+net_borrowing_bucket = Menambah Hutang Berat (tidak reliable).
+
+💡 Ringkasan Akhir untuk Anda
+Dari Group 2, kita belajar bahwa perilaku penarikan dan pembayaran kartu kredit adalah indikator risiko yang sangat kuat, namun kita harus waspada terhadap data quality issues:
+
+Rasio pembayaran yang sangat rendah (<0.4) adalah red flag paling kuat (18,89% default rate).
+
+Nasabah yang tidak memiliki aktivitas penarikan justru adalah kelompok paling aman.
+
+Nasabah yang menambah hutang secara ringan juga menunjukkan sinyal risiko yang valid.
+
+Fitur is_cc_low_pay_ratio dan has_cc_activity wajib masuk ke dalam tabel Gold Layer Anda.
 
 ---
 
@@ -377,11 +568,20 @@ _(Kosong)_
 **What to analyze:**  
 - Rata-rata DPD maksimum per nasabah.
 
-**Kesimpulan Teknis – Group 3:**
-_(Kosong)_
+esimpulan Teknis – Group 3 (Status dan DPD)
+Metrik	Insight	Rekomendasi untuk Fitur
+avg_max_dpd	Defaulter memiliki DPD lebih rendah.	Tidak digunakan (tidak informatif).
+dpd_history = Pernah Tunggakan	Default rate lebih rendah (8,22% vs 8,79%).	Tidak digunakan (tidak valid secara bisnis).
+dpd_type	Selisih default rate sangat kecil (≤0,5%).	Tidak digunakan (tidak signifikan).
+🛠️ Feature Engineering Recommendations for Gold Layer
+Berdasarkan Group 3, tidak ada fitur yang direkomendasikan dari kelompok ini.
 
-**🛠️ Feature Engineering Recommendations:**
-_(Kosong)_
+Kesimpulan Akhir: Data DPD pada kartu kredit terbukti tidak reliable dan tidak memberikan sinyal risiko yang valid. Sebaiknya kita fokus pada fitur-fitur yang sudah terbukti kuat dari Group 1 (Utilisasi) dan Group 2 (Rasio Pembayaran).
+
+💡 Ringkasan Akhir untuk Anda
+Dari Group 3, kita belajar bahwa tidak semua data DPD bisa dipercaya. Meskipun secara intuisi "tunggakan" seharusnya menjadi sinyal bahaya, data quality issue bisa membuat sinyal tersebut menjadi noise.
+
+Jangan paksakan fitur dari Group 3 ini ke dalam Gold Layer, karena akan merusak performa model. Terus fokus pada fitur-fitur kuat dari Group 1 dan Group 2 yang sudah kita temukan sebelumnya.
 
 ---
 
