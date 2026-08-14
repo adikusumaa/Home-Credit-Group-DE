@@ -10,7 +10,7 @@ spark.sparkContext.setLogLevel("ERROR")
 
 ENV = "dev"  # dapat diganti dengan argumen --env
 SILVER_BASE = f"hdfs://namenode:8020/data/{ENV}/silver/staging"
-HIVE_DB = "default"
+HIVE_DB = "gold"
 HIVE_TABLE = "home_credit_gold"
 
 # ============================================================

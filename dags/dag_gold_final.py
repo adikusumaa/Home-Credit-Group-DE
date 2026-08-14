@@ -1,29 +1,31 @@
 from airflow import DAG
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
-from datetime import datetime, timedelta
+from airflow.operators.bash import BashOperator
+from datetime import datetime
 
 default_args = {
     'owner': 'data_team',
-    'depends_on_past': False,
     'start_date': datetime(2026, 1, 1),
-    'retries': 2,
-    'retry_delay': timedelta(minutes=5),
+    'retries': 1,
 }
 
 with DAG(
-    'dag_gold_aggregation',
+    dag_id='dag_gold_final',
     default_args=default_args,
-    description='Build Gold Layer from Silver tables',
-    schedule_interval=None,
+    schedule_interval='@daily',
     catchup=False,
     tags=['gold'],
 ) as dag:
-    gold_task = SparkSubmitOperator(
-        task_id='gold_aggregation',
-        application='jobs/pyspark/Application_g.py',  # sesuaikan path
-        conn_id='spark_default',
-        verbose=True,
-        conf={'spark.sql.hive.convertMetastoreParquet': 'false'},
-        name='Gold_Aggregation',
-    )
-    gold_task
+
+    gold_task = BashOperator(
+    task_id='gold_aggregation',
+    bash_command=(
+        'docker exec spark-master /opt/spark/bin/spark-submit '
+        '--master spark://spark-master:7077 '
+        '--deploy-mode client '
+        '--conf spark.hive.metastore.uris=thrift://hive-metastore:9083 ' 
+        '--conf spark.driver.memory=1g '
+        '--conf spark.executor.memory=1g '
+        '--conf spark.sql.shuffle.partitions=20 '
+        '/opt/jobs/pyspark/Application_g.py'
+    ),
+)
