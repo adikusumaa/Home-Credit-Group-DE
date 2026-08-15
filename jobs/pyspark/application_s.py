@@ -1,7 +1,7 @@
 import logging
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StringType, DoubleType, LongType
+from pyspark.sql.types import StringType, DoubleType
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -10,37 +10,34 @@ logger = logging.getLogger(__name__)
 def process_application():
     spark = SparkSession.builder.appName("ApplicationSilverProcessing").getOrCreate()
     
-    input_path = "/data/bronze/application"
-    output_path = "/data/silver/application"
-    temp_path = "/data/silver/application_temp"
-
     try:
-        df = spark.read.parquet(input_path)
+        logger.info("Reading source data...")
+        df = spark.read.parquet("/data/bronze/application/")
         
         # Schema Drift Handling: Memastikan kolom wajib ada
-        # Menggunakan tipe data PySpark yang eksplisit
         required_columns = {
-            "SK_ID_CURR": LongType(),
-            "AMT_INCOME_TOTAL": DoubleType(),
-            "NAME_CONTRACT_TYPE": StringType()
+            "SK_ID_CURR": "long",
+            "AMT_CREDIT": "double",
+            "NAME_CONTRACT_TYPE": "string"
         }
         
         for col_name, col_type in required_columns.items():
             if col_name not in df.columns:
-                logger.warning(f"Kolom {col_name} hilang, menambahkan dengan nilai NULL.")
+                logger.warning(f"Column {col_name} missing. Adding with null values.")
                 df = df.withColumn(col_name, F.lit(None).cast(col_type))
-
+        
         # Business Logic
         df_silver = df.select(*required_columns.keys())
-
-        # Save dengan pola temp untuk menghindari data corruption
+        
+        # Penulisan aman
+        temp_path = "/data/silver/application_temp/"
+        
         df_silver.write.mode("overwrite").parquet(temp_path)
         
-        # Rename/Move logic (simulasi)
-        logger.info("Data berhasil diproses ke temp path.")
+        logger.info("Processing completed successfully.")
         
     except Exception as e:
-        logger.error(f"Error saat memproses data: {str(e)}")
+        logger.error(f"Error during processing: {str(e)}")
         raise
 
 if __name__ == "__main__":
