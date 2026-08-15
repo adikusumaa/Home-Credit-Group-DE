@@ -8,37 +8,40 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def process_application():
-    spark = SparkSession.builder.appName("SilverApplicationProcessing").getOrCreate()
+    spark = SparkSession.builder.appName("ApplicationSilverProcessing").getOrCreate()
     
     try:
-        df = spark.read.parquet("/data/bronze/application")
+        logger.info("Reading source data...")
+        df = spark.read.parquet("/data/raw/application/")
         
-        # Define expected schema and types to prevent schema drift
-        expected_schema = {
+        # Schema Drift Handling: Memastikan kolom esensial ada
+        required_columns = {
             "SK_ID_CURR": IntegerType(),
-            "TARGET": IntegerType(),
-            "NAME_CONTRACT_TYPE": StringType(),
-            "AMT_INCOME_TOTAL": DoubleType()
+            "AMT_CREDIT": DoubleType(),
+            "NAME_CONTRACT_TYPE": StringType()
         }
         
-        # Schema Drift Handling
-        for col_name, col_type in expected_schema.items():
+        for col_name, col_type in required_columns.items():
             if col_name not in df.columns:
                 logger.warning(f"Column {col_name} missing. Adding with null values.")
                 df = df.withColumn(col_name, F.lit(None).cast(col_type))
         
-        # Business Logic (Keep Intact)
-        df_silver = df.select(*expected_schema.keys())
+        # Business Logic (Simplified)
+        df_processed = df.select(*required_columns.keys())
         
         # Write to temp path before moving to final destination
-        temp_path = "/data/silver/application_temp"
-        df_silver.write.mode("overwrite").parquet(temp_path)
+        temp_path = "/data/silver/application_temp/"
+        final_path = "/data/silver/application/"
         
-        logger.info("Processing completed successfully.")
+        logger.info("Writing to temp path...")
+        df_processed.write.mode("overwrite").parquet(temp_path)
+        
+        # In production, move temp to final using HDFS/S3 commands
+        logger.info("Processing complete.")
         
     except Exception as e:
-        logger.error(f"Error during processing: {str(e)}")
-        raise e
+        logger.error(f"Error processing application data: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     process_application()
