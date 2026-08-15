@@ -1,7 +1,7 @@
 import logging
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StringType, DoubleType
+from pyspark.sql.types import StringType, DoubleType, LongType
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -18,10 +18,11 @@ def process_application():
         df = spark.read.parquet(input_path)
         
         # Schema Drift Handling: Memastikan kolom wajib ada
+        # Menggunakan tipe data PySpark yang eksplisit
         required_columns = {
-            "SK_ID_CURR": "long",
-            "AMT_INCOME_TOTAL": "double",
-            "NAME_CONTRACT_TYPE": "string"
+            "SK_ID_CURR": LongType(),
+            "AMT_INCOME_TOTAL": DoubleType(),
+            "NAME_CONTRACT_TYPE": StringType()
         }
         
         for col_name, col_type in required_columns.items():
@@ -29,7 +30,7 @@ def process_application():
                 logger.warning(f"Kolom {col_name} hilang, menambahkan dengan nilai NULL.")
                 df = df.withColumn(col_name, F.lit(None).cast(col_type))
 
-        # Business Logic (tetap sama)
+        # Business Logic
         df_silver = df.select(*required_columns.keys())
 
         # Save dengan pola temp untuk menghindari data corruption
