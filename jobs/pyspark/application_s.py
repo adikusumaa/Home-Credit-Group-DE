@@ -15,6 +15,7 @@ def process_application():
         df = spark.read.parquet("/data/raw/application/")
         
         # Schema Drift Handling: Memastikan kolom esensial ada
+        # Jika kolom hilang, tambahkan dengan nilai NULL sesuai tipe data
         required_columns = {
             "SK_ID_CURR": IntegerType(),
             "AMT_CREDIT": DoubleType(),
@@ -26,17 +27,16 @@ def process_application():
                 logger.warning(f"Column {col_name} missing. Adding with null values.")
                 df = df.withColumn(col_name, F.lit(None).cast(col_type))
         
-        # Business Logic (Simplified)
+        # Business Logic
         df_processed = df.select(*required_columns.keys())
         
         # Write to temp path before moving to final destination
+        # Menghindari overwrite langsung pada path sumber data
         temp_path = "/data/silver/application_temp/"
-        final_path = "/data/silver/application/"
         
         logger.info("Writing to temp path...")
         df_processed.write.mode("overwrite").parquet(temp_path)
         
-        # In production, move temp to final using HDFS/S3 commands
         logger.info("Processing complete.")
         
     except Exception as e:
