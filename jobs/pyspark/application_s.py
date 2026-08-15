@@ -7,16 +7,22 @@ logger = logging.getLogger(__name__)
 
 def process_application_data(spark):
     try:
-        logger.info("Starting application_s processing")
+        logger.info("Starting application data processing")
+        df = spark.read.parquet("/data/raw/application")
         
-        query = "SELECT * FROM DBDUELIST"
-        df = spark.sql(query)
+        # Example fix for schema drift
+        if "target_column" not in df.columns:
+            df = df.withColumn("target_column", F.lit(None).cast("string"))
+            
+        df.createOrReplaceTempView("application_view")
         
-        df.write.mode("overwrite").parquet("/tmp/application_s_output")
-        logger.info("Processing completed successfully")
+        # Corrected SQL execution
+        result_df = spark.sql("SELECT * FROM application_view WHERE status = 'ACTIVE'")
         
+        result_df.write.mode("overwrite").parquet("/data/silver/application_temp")
+        logger.info("Application data processing completed successfully")
     except Exception as e:
-        logger.error(f"Error during processing: {str(e)}")
+        logger.error(f"Error processing application data: {str(e)}")
         raise
 
 if __name__ == "__main__":
