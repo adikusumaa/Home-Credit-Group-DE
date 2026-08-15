@@ -11,19 +11,20 @@ def process_application_data():
     try:
         logger.info("Starting application data processing")
         
-        df = spark.table("application_raw")
+        df = spark.table("raw_application_data")
         
-        db_due_list = spark.sql("SELECT * FROM DBDUELIST")
+        df.createOrReplaceTempView("DBDUELIST")
+        result_df = spark.sql("SELECT * FROM DBDUELIST")
         
-        df_joined = df.join(db_due_list, on="application_id", how="left")
-        
-        df_joined.write.mode("overwrite").parquet("/tmp/application_silver")
+        result_df.write.mode("overwrite").parquet("/tmp/application_s_output")
         
         logger.info("Application data processing completed successfully")
         
     except Exception as e:
-        logger.error(f"Error processing application data: {str(e)}")
+        logger.error(f"Error during application processing: {str(e)}")
         raise
+    finally:
+        spark.stop()
 
 if __name__ == "__main__":
     process_application_data()
