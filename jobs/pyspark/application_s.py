@@ -9,22 +9,12 @@ def process_application_data():
     spark = SparkSession.builder.appName("ApplicationProcessing").getOrCreate()
     
     try:
-        logger.info("Starting application data processing")
-        
-        df = spark.table("raw_application_data")
-        
-        df.createOrReplaceTempView("DBDUELIST")
-        result_df = spark.sql("SELECT * FROM DBDUELIST")
-        
-        result_df.write.mode("overwrite").parquet("/tmp/application_s_output")
-        
-        logger.info("Application data processing completed successfully")
-        
+        logger.info("Executing SQL query to fetch data from DBDUELIST")
+        df = spark.sql("SELECT * FROM DBDUELIST")
+        df.show()
     except Exception as e:
-        logger.error(f"Error during application processing: {str(e)}")
+        logger.error(f"Error executing SQL query: {str(e)}")
         raise
-    finally:
-        spark.stop()
 
 if __name__ == "__main__":
     process_application_data()
