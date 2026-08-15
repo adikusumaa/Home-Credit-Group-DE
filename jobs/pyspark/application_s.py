@@ -1,48 +1,53 @@
 import logging
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StringType
+from pyspark.sql.types import StringType, DoubleType
 
-# Setup logging
+# Setup Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def ensure_columns(df, expected_schema):
-    """Menangani schema drift dengan menambahkan kolom yang hilang sebagai null."""
-    for col_name, col_type in expected_schema.items():
-        if col_name not in df.columns:
-            logger.warning(f"Kolom {col_name} hilang. Menambahkan dengan tipe {col_type}.")
-            df = df.withColumn(col_name, F.lit(None).cast(col_type))
-    return df
-
-def run_application_processing():
-    spark = SparkSession.builder.appName("ApplicationProcessing").getOrCreate()
+def process_application_data():
+    spark = SparkSession.builder.appName("ApplicationSilverProcessing").getOrCreate()
     
-    # Contoh skema yang diharapkan
-    expected_schema = {
-        "SK_ID_CURR": "long",
-        "TARGET": "integer",
-        "NAME_CONTRACT_TYPE": "string"
-    }
-
     try:
-        df = spark.read.parquet("/data/raw/application")
+        logger.info("Reading source data...")
+        df = spark.read.parquet("/data/raw/application/")
         
-        # Handle schema drift
-        df = ensure_columns(df, expected_schema)
+        # Schema Enforcement: Daftar kolom wajib dan tipe datanya
+        required_columns = {
+            "SK_ID_CURR": "long",
+            "TARGET": "integer",
+            "NAME_CONTRACT_TYPE": "string"
+        }
         
-        # Logic bisnis inti
-        df_processed = df.select(*expected_schema.keys())
+        # Handling missing columns (Schema Drift)
+        for col_name, col_type in required_columns.items():
+            if col_name not in df.columns:
+                logger.warning(f"Column {col_name} missing. Adding as null.")
+                df = df.withColumn(col_name, F.lit(None).cast(col_type))
         
-        # Gunakan temp path untuk overwrite aman
-        temp_path = "/data/silver/application_temp"
+        # Business Logic (Contoh)
+        df_processed = df.select(*required_columns.keys())
+        
+        # Write to temp path before overwrite to avoid data loss
+        temp_path = "/data/silver/application_temp/"
+        final_path = "/data/silver/application/"
+        
+        logger.info("Writing to temp path...")
         df_processed.write.mode("overwrite").parquet(temp_path)
         
-        logger.info("Proses application_s selesai dengan sukses.")
+        # Logic untuk memindahkan dari temp ke final bisa ditambahkan di sini
+        # atau menggunakan overwrite pada path final jika sudah aman
+        df_processed.write.mode("overwrite").parquet(final_path)
+        
+        logger.info("Processing completed successfully.")
         
     except Exception as e:
-        logger.error(f"Error saat memproses application_s: {str(e)}")
-        raise
+        logger.error(f"Error during processing: {str(e)}")
+        raise e
+    finally:
+        spark.stop()
 
 if __name__ == "__main__":
-    run_application_processing()
+    process_application_data()
