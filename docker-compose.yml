@@ -240,6 +240,7 @@ services:
     ports:
       - 18081:8080
     environment:
+      AIRFLOW__API__AUTH_BACKEND: airflow.api.auth.backend.basic_auth
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
       AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres_airflow/airflow
@@ -344,3 +345,35 @@ services:
       resources:
         limits:
           memory: 1024M   # <-- MAKSIMAL 1GB UNTUK OPENSEARCH
+
+
+  crewai:
+    image: python:3.11-slim
+    container_name: crewai
+    networks:
+      - mage_network
+    volumes:
+      - ./crewai_scripts:/opt/crewai         
+      - ./dags:/opt/airflow/dags              
+      - ./:/opt/repo  
+    working_dir: /opt/crewai
+    environment:
+      - AIRFLOW_API_USER=airflow
+      - AIRFLOW_API_PASSWORD=airflow
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+    command: >
+      sh -c "apt-get update &&
+            apt-get install -y git &&
+            pip install --no-cache-dir -r requirements.txt &&
+            git config --global --add safe.directory /opt/airflow/dags &&
+            python app.py"
+    ports:
+      - "5000:5000"
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    depends_on:
+      - opensearch
+      - namenode

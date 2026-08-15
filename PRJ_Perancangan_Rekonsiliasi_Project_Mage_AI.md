@@ -143,20 +143,20 @@ Tabel terintegrasi ini akan menjadi dasar bagi **Dashboard Portfolio Risk Monito
 Melakukan agregasi metrik dari tabel kardinalitas N (contoh: `bureau_balance`, `installments_payments`) dan menggabungkannya ke tabel utama (`application`). Menyimpan hasil akhir (Feature Store) ke dalam tabel Apache Hive.
 
 ### 5.2. Task Checklist
-- [ ] Menulis skrip PySpark `job_gold_aggregation.py`.
-  - [ ] Logika aggregasi `bureau_balance` (GROUP BY `SK_ID_BUREAU`).
-  - [ ] Logika aggregasi `installments_payments` (GROUP BY `SK_ID_CURR`).
-  - [ ] Logika JOIN seluruh hasil aggregasi dengan tabel dimensi utama.
-- [ ] Menulis logika PySpark untuk memuat DataFrame akhir ke Apache Hive (menggunakan `saveAsTable` atau konektivitas JDBC ke HiveServer2).
-- [ ] Membuat `dag_gold_aggregation.py` di Airflow (dependen pada DAG Silver).
+- [x] Menulis skrip PySpark `job_gold_aggregation.py`.
+  - [x] Logika aggregasi `bureau_balance` (GROUP BY `SK_ID_BUREAU`).
+  - [x] Logika aggregasi `installments_payments` (GROUP BY `SK_ID_CURR`).
+  - [x] Logika JOIN seluruh hasil aggregasi dengan tabel dimensi utama.
+- [x] Menulis logika PySpark untuk memuat DataFrame akhir ke Apache Hive (menggunakan `saveAsTable` atau konektivitas JDBC ke HiveServer2).
+- [x] Membuat `dag_gold_aggregation.py` di Airflow (dependen pada DAG Silver).
 
 ### 5.3. Rekonsiliasi & Testing (Fase 4)
 - **Input:** File Parquet di Layer Silver. Trigger DAG `dag_gold_aggregation`.
 - **Expected Output:** DataFrame gabungan berhasil dihitung. Hive Metastore mencatat tabel baru. Data agregat dapat di-query menggunakan HiveQL.
 - **Kriteria Validasi:**
-  - [ ] PySpark job selesai tanpa error Memory/OOM.
-  - [ ] Eksekusi kueri via Beeline: `SELECT * FROM default.home_credit_gold LIMIT 5;` mengembalikan hasil yang valid.
-  - [ ] Validasi perhitungan agregasi (misal: verifikasi nilai total pinjaman sesuai dengan kalkulasi manual pada sampel kecil).
+  - [x] PySpark job selesai tanpa error Memory/OOM.
+  - [x] Eksekusi kueri via Beeline: `SELECT * FROM default.home_credit_gold LIMIT 5;` mengembalikan hasil yang valid.
+  - [x] Validasi perhitungan agregasi (misal: verifikasi nilai total pinjaman sesuai dengan kalkulasi manual pada sampel kecil).
 - **Status Eksekusi:** [ ] PASS / [ ] FAIL
 
 ---

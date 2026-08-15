@@ -4,6 +4,15 @@ from datetime import datetime
 import os
 from hdfs import InsecureClient
 
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+
+def trigger_ai_on_failure(context):
+    TriggerDagRunOperator(
+        task_id="trigger_ai",
+        trigger_dag_id="dag_incident_response",
+        conf={"failed_dag_id": context['dag'].dag_id}
+    ).execute(context=context)
+
 default_args = {
     'owner': 'airflow',
     'start_date': datetime(2026, 8, 9),
@@ -80,6 +89,7 @@ dag = DAG(
     description='Upload CSV to HDFS Bronze via hdfs library',
     schedule='@daily',
     catchup=False,
+    on_failure_callback=trigger_ai_on_failure
 )
 
 create_dir_task = PythonOperator(

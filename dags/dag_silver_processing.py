@@ -2,6 +2,15 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from datetime import datetime
 
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+
+def trigger_ai_on_failure(context):
+    TriggerDagRunOperator(
+        task_id="trigger_ai",
+        trigger_dag_id="dag_incident_response",
+        conf={"failed_dag_id": context['dag'].dag_id}
+    ).execute(context=context)
+
 default_args = {
     'owner': 'airflow',
     'start_date': datetime(2026, 8, 10),
@@ -14,9 +23,10 @@ dag = DAG(
     description='Silver Layer via spark-submit (BashOperator) - 3 scripts',
     schedule_interval='@daily',
     catchup=False,
+    on_failure_callback=trigger_ai_on_failure
 )
 
-# Daftar script baru
+
 scripts = [
     'application_s.py',
     'bureau_s.py',
@@ -54,4 +64,4 @@ copy_report_task = BashOperator(
 )
 
 # Dependencies: application -> bureau -> previous -> validate -> copy_report
-tasks[0] >> tasks[1] >> tasks[2] >> validate_task >> copy_report_task
+tasks[0] >> tasks[1] >> tasks[2] >> validate_task >> copy_report_task 
