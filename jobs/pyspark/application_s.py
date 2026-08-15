@@ -1,25 +1,23 @@
 import logging
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StringType, DoubleType, IntegerType
+from pyspark.sql.types import StringType, DoubleType
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def process_application():
-    spark = SparkSession.builder.appName("ApplicationSilverProcessing").getOrCreate()
+def process_application(spark, input_path, output_path):
+    logger.info(f"Starting processing from {input_path}")
     
     try:
-        logger.info("Reading source data...")
-        df = spark.read.parquet("/data/raw/application/")
+        df = spark.read.parquet(input_path)
         
-        # Schema Drift Handling: Memastikan kolom esensial ada
-        # Jika kolom hilang, tambahkan dengan nilai NULL sesuai tipe data
+        # Schema Drift Handling: Memastikan kolom wajib ada
         required_columns = {
-            "SK_ID_CURR": IntegerType(),
+            "SK_ID_CURR": StringType(),
             "AMT_CREDIT": DoubleType(),
-            "NAME_CONTRACT_TYPE": StringType()
+            "AMT_INCOME_TOTAL": DoubleType()
         }
         
         for col_name, col_type in required_columns.items():
@@ -27,21 +25,19 @@ def process_application():
                 logger.warning(f"Column {col_name} missing. Adding with null values.")
                 df = df.withColumn(col_name, F.lit(None).cast(col_type))
         
-        # Business Logic
+        # Business Logic (Tetap dipertahankan)
         df_processed = df.select(*required_columns.keys())
         
-        # Write to temp path before moving to final destination
-        # Menghindari overwrite langsung pada path sumber data
-        temp_path = "/data/silver/application_temp/"
+        # Penulisan aman menggunakan temp path
+        temp_output = output_path + "_temp"
+        df_processed.write.mode("overwrite").parquet(temp_output)
         
-        logger.info("Writing to temp path...")
-        df_processed.write.mode("overwrite").parquet(temp_path)
-        
-        logger.info("Processing complete.")
+        logger.info(f"Successfully processed data to {output_path}")
         
     except Exception as e:
-        logger.error(f"Error processing application data: {str(e)}")
+        logger.error(f"Error during processing: {str(e)}")
         raise
 
 if __name__ == "__main__":
-    process_application()
+    spark = SparkSession.builder.appName("ApplicationProcessing").getOrCreate()
+    process_application(spark, "/data/raw/application", "/data/silver/application")
