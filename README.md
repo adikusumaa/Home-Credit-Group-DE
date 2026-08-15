@@ -1,6 +1,6 @@
 # 🏗️ Project Mage AI - Data Engineering Pipeline for Home Credit Risk
 
-[![Docker](https://img.shields.io/badge/Docker-24.0+-blue.svg)](https://www.docker.com/) [![Apache Spark](https://img.shields.io/badge/Spark-3.4+-orange.svg)](https://spark.apache.org/) [![Apache Airflow](https://img.shields.io/badge/Airflow-2.7+-green.svg)](https://airflow.apache.org/) [![Hadoop](https://img.shields.io/badge/Hadoop-3.3+-yellow.svg)](https://hadoop.apache.org/) [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/) [![Status](https://img.shields.io/badge/Status-WIP%20(1%2F5%20Phases)-red.svg)]()
+[![Docker](https://img.shields.io/badge/Docker-24.0+-blue.svg)](https://www.docker.com/) [![Apache Spark](https://img.shields.io/badge/Spark-3.4+-orange.svg)](https://spark.apache.org/) [![Apache Airflow](https://img.shields.io/badge/Airflow-2.7+-green.svg)](https://airflow.apache.org/) [![Hadoop](https://img.shields.io/badge/Hadoop-3.3+-yellow.svg)](https://hadoop.apache.org/) [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/) [![Status](https://img.shields.io/badge/Status-Completed-brightgreen.svg)]()
 
 **Project Mage AI** adalah implementasi end-to-end Data Engineering pipeline untuk Portfolio DANA Data Engineer Intern. Proyek ini membangun arsitektur data modern menggunakan **Medallion Architecture** (Bronze → Silver → Gold) dengan ekosistem Big Data (Hadoop, Spark, Hive, Airflow) serta mengintegrasikan **Autonomous DataOps** menggunakan CrewAI untuk schema evolution, auto-remediasi, dan dokumentasi otomatis.
 
@@ -19,10 +19,12 @@ Dataset yang digunakan adalah **Home Credit Default Risk** (10 file CSV) dengan 
   - Integrasi seluruh fitur ke tabel master per aplikasi (`SK_ID_CURR`)
   - Quality Assurance dengan **Great Expectations**
 - 📊 **Layer Gold (Data Warehouse)**: Agregasi metrik dan penyimpanan final ke **Apache Hive** untuk dashboard risk monitoring dan ML modeling.
-- 🤖 **Autonomous DataOps (CrewAI)**:
-  - **Schema Evolution Observer**: Deteksi otomatis perubahan skema dan update GE expectations
-  - **Incident Response Specialist**: Auto-remediasi error log dari OpenSearch + Git commit
-  - **Data Steward**: Dokumentasi metadata Hive otomatis
+- 🤖 **Autonomous DataOps (CrewAI)** — **Fase 5 Selesai**:
+  - **Agent Analyst**: Menganalisis error log dari OpenSearch, mendeteksi Schema Drift atau OOM.
+  - **Agent Engineer**: Menghasilkan kode patch (perbaikan) dengan PySpark, menambahkan handling kolom hilang.
+  - **Agent Reviewer**: Meninjau kode patch, memastikan keamanan data (tidak ada `overwrite` berbahaya) dan memutuskan APPROVED/REJECTED.
+  - **GitPatchTool**: Membuat branch baru, melakukan commit, push ke GitHub, dan membuka Pull Request secara otomatis.
+  - **Hasil**: Branch `fix/incident-*` dan PR telah berhasil dibuat untuk error `dag_silver_processing` (Schema Drift).
 - 🐳 **Infrastruktur Terisolasi**: Full Docker Compose cluster dengan 10+ layanan (Hadoop, Hive, Spark, Airflow, OpenSearch).
 
 ---
@@ -93,7 +95,7 @@ Buat virtual environment dan install dependencies:
 python -m venv venv
 
 # Aktivasi (Windows)
-venv\Scripts ctivate
+venv\Scripts\activate
 
 # Aktivasi (Mac/Linux)
 source venv/bin/activate
@@ -160,9 +162,9 @@ project-mage-ai/
 │   └── airflow.cfg
 ├── dags/                           # Airflow DAGs
 │   ├── dag_bronze_ingestion.py     # ✅ Fase 2 (Completed)
-│   ├── dag_silver_processing.py    # ⚠️ Fase 3 (WIP)
-│   ├── dag_gold_aggregation.py     # ⬜ Fase 4 (Pending)
-│   └── dag_crewai_ops.py           # ⬜ Fase 5 (Pending)
+│   ├── dag_silver_processing.py    # ✅ Fase 3 (Completed)
+│   ├── dag_gold_aggregation.py     # ✅ Fase 4 (Completed)
+│   └── dag_crewai_ops.py           # ✅ Fase 5 (Completed)
 ├── data/                           # Dataset lokal (10 CSV)
 │   ├── application_train.csv       (307,511 rows)
 │   ├── application_test.csv        (48,744 rows)
@@ -208,11 +210,11 @@ project-mage-ai/
 |------|------|--------|--------------|
 | **Fase 1** | Infrastructure Setup | ✅ PASS | Docker containers healthy, all UIs accessible |
 | **Fase 2** | Bronze Ingestion | ✅ PASS | 10 CSV files in HDFS, checksum matching |
-| **Fase 3** | Silver Processing | ⚠️ WIP | Cleaning + Aggregation + Integration + GE |
-| **Fase 4** | Gold Hive DW | ⬜ Pending | Hive tables queryable via Beeline |
-| **Fase 5** | Autonomous DataOps | ⬜ Pending | Schema evolution, auto-remediation, docs |
+| **Fase 3** | Silver Processing | ✅ PASS | Cleaning + Aggregation + Integration + GE |
+| **Fase 4** | Gold Hive DW | ✅ PASS | Hive tables queryable via Beeline |
+| **Fase 5** | Autonomous DataOps (CrewAI) | ✅ PASS | Agents berhasil analisis, generate patch, review, dan buat PR di GitHub |
 
-*Current Progress: 1 dari 5 fase selesai (20%). Fase 3 sedang dalam pengembangan.*
+*Current Progress: Seluruh fase utama (Fase 1 hingga Fase 5) telah berhasil diselesaikan.*
 
 ---
 
@@ -236,21 +238,46 @@ project-mage-ai/
 
 ---
 
-## 🤖 Autonomous DataOps (CrewAI) - Fase 5 Overview
-Meskipun belum diimplementasi (pending), berikut arsitektur agent yang direncanakan:
+## 🚀 Fase 5: Autonomous DataOps (CrewAI) – Selesai!
 
-- **Agent 1: Schema Evolution Observer**
-  - **Tool**: HDFS file inspector + JSON comparator
-  - **Action**: Deteksi kolom baru di CSV → update `great_expectations/expectations/*.json`
-  - **Trigger**: Event-based (setiap pipeline selesai)
-- **Agent 2: Incident Response Specialist**
-  - **Tool**: OpenSearch API query + GitPython
-  - **Action**: Baca log error Airflow → generate patch via LLM → commit ke branch baru
-  - **Trigger**: Airflow DAG Failure event
-- **Agent 3: Data Steward**
-  - **Tool**: Hive JDBC connector
-  - **Action**: Ekstrak metadata tabel → generate `DATA_DICTIONARY.md`
-  - **Trigger**: Trigger manual atau post-Gold pipeline
+CrewAI telah diimplementasikan sebagai sistem autonomous untuk menangani error pipeline secara otomatis. Berikut alur kerjanya:
+1. **Analyst** membaca log error dari OpenSearch dan HDFS schema, lalu memberikan rekomendasi perbaikan.
+2. **Engineer** menulis ulang file kode (misal `dags/dag_silver_processing.py`) dengan tambahan handling kolom hilang.
+3. **Reviewer** mengecek kode patch, memastikan tidak ada risiko data loss (misal `mode("overwrite")` langsung) dan memberikan status **APPROVED** atau **REJECTED**.
+4. **GitPatchTool** (jika APPROVED) membuat branch `fix/incident-{timestamp}`, commit, push ke GitHub, dan membuka Pull Request.
+
+**Hasil dari pengujian akhir:**
+![Terminal CrewAI Agents](img/Ai_agents_CrewTerminal.png)
+*Log terminal saat CrewAI menjalankan Analyst → Engineer → Reviewer hingga status APPROVED.*
+
+![Branch Git yang dibuat oleh AI](img/AICrew%20Branch%20Git.png)
+*Branch `fix/incident-*` dan Pull Request otomatis muncul di GitHub.*
+
+---
+
+### 📸 Screenshot Pipeline Silver & Hive Warehouse
+Proses Silver Layer telah berhasil dijalankan dan data Gold di Hive siap diakses.
+
+![Dev Silver 1](img/DEV%20SILVER.png)
+*Proses cleansing & feature engineering pada Silver Layer.*
+
+![Dev Silver 2](img/DEV%20SILVER%202.png)
+*Validasi data dan Great Expectations report.*
+
+![Error Test](img/Error%20Test.png)
+*Simulasi error pada DAG `dag_silver_processing` yang memicu CrewAI.*
+
+![Warehouse Hive](img/Warehouse%20Hive.png)
+*Tabel Gold di Hive yang dapat diquery via Beeline.*
+
+---
+
+### 🧪 Hasil Akhir
+- ✅ CrewAI berhasil menganalisis error `Column not found` (Schema Drift).
+- ✅ Engineer menghasilkan patch yang valid dengan penanganan kolom hilang (menggunakan `F.lit(None).cast(...)`).
+- ✅ Reviewer menyetujui patch (APPROVED) setelah memastikan keamanan data.
+- ✅ GitPatchTool membuat branch, push, dan Pull Request ke GitHub.
+- ✅ Seluruh pipeline (Bronze → Silver → Gold) berjalan otomatis melalui Airflow.
 
 ---
 
