@@ -8,7 +8,7 @@ Dataset yang digunakan adalah **Home Credit Default Risk** (10 file CSV) dengan 
 
 ![Arsitektur Pipeline](img/Data%20Engineer%20AI.png)
 *Arsitektur Data Lake dengan Hadoop, Spark, Hive, dan Airflow*
-(data/home_credit.png)
+![Home Credit](data/home_credit.png)
 *Data Table Info*
 
 ---
