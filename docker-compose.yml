@@ -245,8 +245,8 @@ services:
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
       AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres_airflow/airflow
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CORE__PARALLELISM: 1          # <-- WAJIB! HANYA 1 TASK SEJALAN
-      AIRFLOW__CORE__DAG_CONCURRENCY: 1      # <-- WAJIB!
+      AIRFLOW__CORE__PARALLELISM: 1       
+      AIRFLOW__CORE__DAG_CONCURRENCY: 1   
       AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: 1
       _AIRFLOW_WWW_USER_USERNAME: airflow
       _AIRFLOW_WWW_USER_PASSWORD: airflow
@@ -260,7 +260,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M   # <-- BATASI WEBSERVER
+          memory: 512M  
 
   airflow-scheduler:
     image: airflow-custom:2.9.0
